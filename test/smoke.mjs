@@ -98,8 +98,6 @@ shot('3-sok');
 console.log('Appliste og søk OK');
 
 // 3. Appmeny: legg Settings til på hjemskjermen og slå på pauseskjerm
-sh('adb shell input keyevent KEYCODE_ESCAPE');
-await sleep(500);
 longPress(await need(/^Settings$/, 'Settings'));
 tap(await need(/Legg til på hjemskjermen/, 'menyvalg favoritt'));
 await sleep(800);

@@ -51,6 +51,7 @@ fun AppListPage(
     showHidden: Boolean,
     onShowHidden: (Boolean) -> Unit,
     isCurrent: Boolean,
+    overlayOpen: Boolean,
     onOpen: (AppEntry) -> Unit,
     onMenu: (AppEntry) -> Unit,
     onSettings: () -> Unit,
@@ -66,11 +67,15 @@ fun AppListPage(
     val results = remember(visible, query, settings) { visible.search(query, settings) }
     val hiddenCount = remember(apps, settings) { apps.count { it.key in settings.hidden } }
 
-    LaunchedEffect(isCurrent) {
-        if (isCurrent && settings.autoKeyboard) {
+    // Tastaturet følger siden og eventuelle dialoger; søket nullstilles bare når man forlater siden.
+    LaunchedEffect(isCurrent, overlayOpen) {
+        if (isCurrent && !overlayOpen && settings.autoKeyboard) {
             runCatching { focusRequester.requestFocus() }
             keyboard?.show()
-        } else if (!isCurrent) {
+        }
+    }
+    LaunchedEffect(isCurrent) {
+        if (!isCurrent) {
             keyboard?.hide()
             focus.clearFocus()
             onQuery("")
