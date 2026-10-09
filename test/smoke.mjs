@@ -69,7 +69,13 @@ function assertAlive() {
 sh(`adb shell appops set ${PKG} GET_USAGE_STATS allow`);
 sh(`adb shell cmd notification allow_listener ${PKG}/${PKG}.NotificationFilterService`);
 sh(`adb shell appwidget grantbind --package ${PKG}`);
-sh(`adb shell cmd package set-home-activity ${PKG}/.MainActivity`);
+// Rolletjenesten er ikke alltid klar rett etter oppstart av emulatoren, så prøv flere ganger.
+for (let i = 0; ; i++) {
+  try { sh(`adb shell cmd package set-home-activity ${PKG}/.MainActivity`); break; } catch {}
+  try { sh(`adb shell cmd role add-role-holder android.app.role.HOME ${PKG}`); break; } catch {}
+  if (i >= 10) fail('kunne ikke sette launcheren som startskjerm');
+  await sleep(3000);
+}
 sh('adb logcat -c');
 sh('adb shell input keyevent KEYCODE_WAKEUP');
 sh('adb shell wm dismiss-keyguard || true');
