@@ -30,8 +30,9 @@ function nodes(xml) {
   for (const m of xml.matchAll(/<node [^>]*>/g)) {
     const a = m[0];
     const text = (a.match(/ text="([^"]*)"/) || [])[1] || '';
+    const cls = (a.match(/ class="([^"]*)"/) || [])[1] || '';
     const b = (a.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/) || []).slice(1).map(Number);
-    if (b.length === 4) out.push({ text: text.replace(/&amp;/g, '&'), x: (b[0] + b[2]) >> 1, y: (b[1] + b[3]) >> 1 });
+    if (b.length === 4) out.push({ text: text.replace(/&amp;/g, '&'), cls, x: (b[0] + b[2]) >> 1, y: (b[1] + b[3]) >> 1 });
   }
   return out;
 }
@@ -83,7 +84,12 @@ console.log('Hjemskjerm OK');
 
 // 2. Applisten med søk
 swipeLeft();
-await need(/^Søk$/, 'søkefelt');
+{
+  const end = Date.now() + 15000;
+  let field = null;
+  while (!field && Date.now() < end) { field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText'); if (!field) await sleep(700); }
+  if (!field) fail('fant ikke søkefelt. Synlig tekst: ' + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+}
 await need(/^Innstillinger$|^Settings$|^Chrome$|^Clock$/, 'apper i listen');
 shot('2-apper');
 sh('adb shell input text sett');
@@ -147,8 +153,8 @@ console.log('Widgetside OK');
 
 // 6. Innstillinger
 await home();
-const clock = await need(/^\d{1,2}:\d{2}$/, 'klokke');
-longPress({ x: W / 2 | 0, y: (clock.y + 260) });
+await need(/^\d{1,2}:\d{2}$/, 'klokke');
+longPress({ x: W / 2 | 0, y: H * 0.88 | 0 });
 await need(/^Innstillinger$/, 'innstillinger');
 await need(/^Standard startskjerm$/, 'tilgangsliste');
 shot('8-innstillinger');

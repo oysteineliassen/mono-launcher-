@@ -92,26 +92,29 @@ fun AppListPage(
             .padding(horizontal = 32.dp)
     ) {
         Spacer(Modifier.height(32.dp))
-        Box(Modifier.fillMaxWidth()) {
-            if (query.isEmpty()) Text("Søk", fontSize = 24.sp, color = Faint, fontWeight = FontWeight.Light)
-            BasicTextField(
-                value = query,
-                onValueChange = onQuery,
-                singleLine = true,
-                textStyle = TextStyle(color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Light),
-                cursorBrush = SolidColor(Color.White),
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Go,
-                    autoCorrectEnabled = false,
-                    capitalization = KeyboardCapitalization.None,
-                ),
-                keyboardActions = KeyboardActions(onGo = { results.firstOrNull()?.let { openAndReset(it) } }),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .testTag("search"),
-            )
-        }
+        BasicTextField(
+            value = query,
+            onValueChange = onQuery,
+            singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Light),
+            cursorBrush = SolidColor(Color.White),
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Go,
+                autoCorrectEnabled = false,
+                capitalization = KeyboardCapitalization.None,
+            ),
+            keyboardActions = KeyboardActions(onGo = { results.firstOrNull()?.let { openAndReset(it) } }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester)
+                .testTag("search"),
+            decorationBox = { field ->
+                Box(Modifier.fillMaxWidth()) {
+                    if (query.isEmpty()) Text("Søk", fontSize = 24.sp, color = Faint, fontWeight = FontWeight.Light)
+                    field()
+                }
+            },
+        )
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = Faint)
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("applist")) {
