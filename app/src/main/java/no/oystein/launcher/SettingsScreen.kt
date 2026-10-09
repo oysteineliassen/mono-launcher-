@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,7 +33,8 @@ fun SettingsScreen(
     onPickWidget: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
+    // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
+    val scope = activity.lifecycleScope
     val e = activity.editor
     val byKey = remember(apps) { apps.associateBy { it.key } }
     val byPkg = remember(apps) { apps.groupBy { it.packageName }.mapValues { it.value.first() } }

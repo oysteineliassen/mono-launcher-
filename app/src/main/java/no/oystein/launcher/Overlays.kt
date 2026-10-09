@@ -36,7 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -140,7 +140,8 @@ fun AppMenu(
     onLimit: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
+    // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
+    val scope = activity.lifecycleScope
     val e = activity.editor
     val isFav = app.key in settings.favorites
     val isHidden = app.key in settings.hidden
@@ -175,7 +176,8 @@ fun AppMenu(
 
 @Composable
 fun RenameDialog(activity: MainActivity, app: AppEntry, settings: AppSettings, onClose: () -> Unit) {
-    val scope = rememberCoroutineScope()
+    // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
+    val scope = activity.lifecycleScope
     var text by remember { mutableStateOf(app.label(settings)) }
     val fr = remember { FocusRequester() }
     fun save(name: String?) {
@@ -210,7 +212,8 @@ fun RenameDialog(activity: MainActivity, app: AppEntry, settings: AppSettings, o
 
 @Composable
 fun LimitDialog(activity: MainActivity, app: AppEntry, settings: AppSettings, onClose: () -> Unit) {
-    val scope = rememberCoroutineScope()
+    // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
+    val scope = activity.lifecycleScope
     val current = settings.limits[app.packageName]
     fun set(min: Int?) {
         scope.launch { activity.editor.setLimit(app.packageName, min) }
