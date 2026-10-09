@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kun i debug-bygget: lar røyktesten slå på varseldemping uten å gå via menyen. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".TestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="no.oystein.launcher.TEST_MUTE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
