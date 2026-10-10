@@ -1,5 +1,12 @@
 package no.oystein.launcher
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.runtime.key
@@ -18,6 +25,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import android.provider.MediaStore
 import androidx.compose.foundation.clickable
@@ -262,7 +270,9 @@ private fun expandNotifications(activity: MainActivity) {
 
 /**
  * Favorittene i én del, sorterbare: hold inne på en app (sorteringsmodus slås på) og dra opp eller
- * ned uten å slippe. Appen man holder i uthevs, de andre dempes litt. Rekkefølgen lagres ved slipp.
+ * ned i ett sveip. Listen står stille mens man drar – bare appen man holder følger fingeren, og de
+ * andre dyttes et hakk med en myk animasjon etter hvert som den passerer. Ny rekkefølge lagres ved slipp.
+ * (Å flytte radene underveis ville avbrutt berøringen, derfor flyttes de bare visuelt til man slipper.)
  */
 @Composable
 private fun ReorderableFavorites(
@@ -283,12 +293,87 @@ private fun ReorderableFavorites(
     val heights = remember { mutableStateMapOf<String, Int>() }
     val haptic = LocalHapticFeedback.current
     val currentEditing by rememberUpdatedState(editing)
+    val scope = rememberCoroutineScope()
+    // Når man slipper, glir appen det siste lille stykket på plass.
+    val settle = remember { Animatable(0f) }
+    var settlingKey by remember { mutableStateOf<String?>(null) }
+
+    fun top(i: Int): Float = (0 until i).sumOf { heights[order[it]] ?: 0 }.toFloat()
+    fun height(i: Int): Float = (heights[order[i]] ?: 0).toFloat()
+
+    // Hvor appen havner hvis man slipper nå: der midten av den passerer midten av en annen.
+    fun targetIndex(): Int {
+        val start = order.indexOf(dragging ?: return -1)
+        if (start < 0) return -1
+        val center = top(start) + height(start) / 2 + offset
+        var target = start
+        while (target < order.lastIndex && center > top(target + 1) + height(target + 1) / 2) target++
+        while (target > 0 && center < top(target - 1) + height(target - 1) / 2) target--
+        return target
+    }
+
+    val start = dragging?.let { order.indexOf(it) } ?: -1
+    val target = if (dragging != null) targetIndex() else -1
+    var lastTarget by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(target) {
+        if (target >= 0 && lastTarget >= 0 && target != lastTarget) {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+        lastTarget = target
+    }
+
+    fun drop() {
+        val k = dragging ?: return
+        val from = order.indexOf(k)
+        val to = targetIndex()
+        if (from >= 0 && to >= 0 && to != from) {
+            // Avstanden mellom der fingeren slapp og der appen faktisk havner, så den kan gli på plass.
+            val landTop = if (to > from) top(to) + height(to) - height(from) else top(to)
+            val residual = top(from) + offset - landTop
+            order = order.toMutableList().apply { add(to, removeAt(from)) }
+            settlingKey = k
+            // Uten å vente på neste bilde, så appen ikke blinker på feil plass.
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                settle.snapTo(residual)
+                settle.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow))
+                settlingKey = null
+            }
+            onReorder(order)
+        } else {
+            settlingKey = k
+            val residual = offset
+            // Uten å vente på neste bilde, så appen ikke blinker på feil plass.
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                settle.snapTo(residual)
+                settle.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow))
+                settlingKey = null
+            }
+        }
+        dragging = null
+        offset = 0f
+    }
 
     Column(Modifier.fillMaxWidth()) {
-        for (k in order) {
-            val app = byKey[k] ?: continue
+        order.forEachIndexed { i, k ->
+            val app = byKey[k] ?: return@forEachIndexed
             key(k) {
                 val isDragging = dragging == k
+                // De andre dyttes ett hakk (høyden til appen man drar) når den passerer dem.
+                val push = when {
+                    dragging == null || isDragging || start < 0 || target < 0 -> 0f
+                    target > start && i in (start + 1)..target -> -height(start)
+                    target < start && i in target until start -> height(start)
+                    else -> 0f
+                }
+                val shift by animateFloatAsState(
+                    targetValue = push,
+                    animationSpec = if (dragging != null) {
+                        spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow)
+                    } else {
+                        snap()
+                    },
+                    label = "dytt",
+                )
                 val scale by animateFloatAsState(if (isDragging) 1.06f else 1f, label = "løft")
                 FavoriteRow(
                     app = app,
@@ -301,9 +386,13 @@ private fun ReorderableFavorites(
                     onMenu = { onMenu(app) },
                     modifier = Modifier
                         .onSizeChanged { heights[k] = it.height }
-                        .zIndex(if (isDragging) 1f else 0f)
+                        .zIndex(if (isDragging || settlingKey == k) 1f else 0f)
                         .graphicsLayer {
-                            translationY = if (isDragging) offset else 0f
+                            translationY = when {
+                                isDragging -> offset
+                                settlingKey == k -> settle.value
+                                else -> shift
+                            }
                             scaleX = scale
                             scaleY = scale
                             transformOrigin = TransformOrigin(0f, 0.5f)
@@ -316,35 +405,15 @@ private fun ReorderableFavorites(
                                     dragging = k
                                     offset = 0f
                                 },
-                                onDragEnd = {
-                                    dragging = null
-                                    offset = 0f
-                                    onReorder(order)
-                                },
-                                onDragCancel = {
-                                    dragging = null
-                                    offset = 0f
-                                },
+                                onDragEnd = { drop() },
+                                onDragCancel = { drop() },
                             ) { change, amount ->
                                 change.consume()
-                                offset += amount.y
-                                // Bytt plass med naboen når man har dratt forbi halvparten av den.
-                                val i = order.indexOf(k)
-                                if (offset > 0 && i < order.lastIndex) {
-                                    val h = heights[order[i + 1]] ?: 0
-                                    if (h > 0 && offset > h / 2f) {
-                                        order = order.toMutableList().apply { add(i + 1, removeAt(i)) }
-                                        offset -= h
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
-                                } else if (offset < 0 && i > 0) {
-                                    val h = heights[order[i - 1]] ?: 0
-                                    if (h > 0 && -offset > h / 2f) {
-                                        order = order.toMutableList().apply { add(i - 1, removeAt(i)) }
-                                        offset += h
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
-                                }
+                                // Ikke lenger enn til toppen/bunnen av listen.
+                                val i0 = order.indexOf(k)
+                                val minOffset = -top(i0)
+                                val maxOffset = top(order.size) - top(i0) - height(i0)
+                                offset = (offset + amount.y).coerceIn(minOffset, maxOffset)
                             }
                         },
                 )
