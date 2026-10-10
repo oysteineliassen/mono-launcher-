@@ -308,6 +308,9 @@ async function addWidget(re, query) {
       await sleep(700);
       continue;
     }
+    if (texts.some((t) => /^(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag) \d+\./.test(t))) {
+      fail('launcheren hoppet til hjemskjermen under widgetoppsettet (skal bli på widgetsiden)');
+    }
     const ours = texts.some((t) => /^(Legg til widget|Ingen widgeter|\+ Legg til|Ferdig)$/.test(t)) ||
       (ui.length > 0 && texts.length === 0); // widgetsiden med bare widgeter har ingen egne tekster
     if (texts.length && !ours) {

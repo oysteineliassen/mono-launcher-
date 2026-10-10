@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -41,8 +42,18 @@ class MainActivity : ComponentActivity() {
     /** Øker hver gang aktiviteten blir synlig, slik at bruk, tilganger og apper lastes på nytt. */
     val resumeCount: StateFlow<Int> = _resumeCount
 
-    /** Settes når vi åpner egne dialoger (widgetvalg, tilganger), så vi ikke hopper til hjemskjermen etterpå. */
-    private var keepState = false
+    /**
+     * Når vi sist åpnet noe selv (widgetoppsett, tillatelser, innstillinger). Stopper aktiviteten like
+     * etter, skal vi bli stående der vi var når brukeren kommer tilbake, i stedet for å hoppe hjem.
+     * Et tidspunkt i stedet for et flagg: Android kan levere svar fra én dialog og starte neste før
+     * onStart, og en dialog som bare pauser aktiviteten skal ikke påvirke en senere, ekte avslutning.
+     */
+    private var internalLaunchAt = 0L
+    private var stoppedForInternal = false
+
+    private fun markInternalLaunch() {
+        internalLaunchAt = SystemClock.elapsedRealtime()
+    }
 
     private var pendingWidgetId = -1
     private var pendingWidgetInfo: AppWidgetProviderInfo? = null
@@ -76,26 +87,28 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         runCatching { widgets.host.startListening() }
         _resumeCount.value++
-        if (!keepState) _homeEvents.tryEmit(Unit)
-        keepState = false
+        if (!stoppedForInternal) _homeEvents.tryEmit(Unit)
+        stoppedForInternal = false
     }
 
     override fun onStop() {
         super.onStop()
         runCatching { widgets.host.stopListening() }
+        stoppedForInternal = SystemClock.elapsedRealtime() - internalLaunchAt < 5_000
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.action == Intent.ACTION_MAIN) {
-            keepState = false
+            internalLaunchAt = 0L
+            stoppedForInternal = false
             _homeEvents.tryEmit(Unit)
         }
     }
 
     /** Starter en systemskjerm (innstillinger o.l.) og blir stående der vi var når brukeren kommer tilbake. */
     fun startInternal(intent: Intent) {
-        keepState = true
+        markInternalLaunch()
         try {
             startActivity(intent)
         } catch (_: ActivityNotFoundException) {
@@ -103,7 +116,7 @@ class MainActivity : ComponentActivity() {
             try {
                 startActivity(Intent(intent.action))
             } catch (_: Exception) {
-                keepState = false
+                internalLaunchAt = 0L
             }
         }
     }
@@ -118,7 +131,7 @@ class MainActivity : ComponentActivity() {
     fun requestDefaultLauncher() {
         val rm = getSystemService(RoleManager::class.java)
         if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-            keepState = true
+            markInternalLaunch()
             @Suppress("DEPRECATION")
             startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), REQ_ROLE)
         } else {
@@ -138,7 +151,7 @@ class MainActivity : ComponentActivity() {
         if (allowed) {
             configureWidget(id, info)
         } else {
-            keepState = true
+            markInternalLaunch()
             val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
@@ -152,7 +165,7 @@ class MainActivity : ComponentActivity() {
             info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
         Log.d(TAG, "configureWidget id=$id configure=${info.configure} optional=$optional")
         if (info.configure != null && !optional) {
-            keepState = true
+            markInternalLaunch()
             try {
                 // Android 14+: launcheren må eksplisitt tillate at widgetens oppsett startes, ellers
                 // stopper systemet det med en gang og vi får «avbrutt» tilbake.
