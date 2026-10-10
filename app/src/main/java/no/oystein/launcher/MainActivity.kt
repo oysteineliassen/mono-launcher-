@@ -1,5 +1,6 @@
 package no.oystein.launcher
 
+import android.app.ActivityOptions
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
@@ -153,7 +154,13 @@ class MainActivity : ComponentActivity() {
         if (info.configure != null && !optional) {
             keepState = true
             try {
-                widgets.host.startAppWidgetConfigureActivityForResult(this, id, 0, REQ_CONFIGURE, null)
+                // Android 14+: launcheren må eksplisitt tillate at widgetens oppsett startes, ellers
+                // stopper systemet det med en gang og vi får «avbrutt» tilbake.
+                val options = ActivityOptions.makeBasic()
+                if (Build.VERSION.SDK_INT >= 34) {
+                    options.setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED)
+                }
+                widgets.host.startAppWidgetConfigureActivityForResult(this, id, 0, REQ_CONFIGURE, options.toBundle())
                 return
             } catch (_: Exception) {
                 // Faller tilbake til å bruke widgeten uten oppsett.
