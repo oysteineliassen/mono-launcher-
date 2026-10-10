@@ -107,10 +107,17 @@ async function needDesc(desc) {
 }
 if (!QUICK) {
   const phone = await needDesc('Telefon');
+  const sms = await needDesc('Meldinger');
   const camera = await needDesc('Kamera');
-  if (!(phone.x < W / 2 && camera.x > W / 2 && phone.y > H * 0.7 && camera.y > H * 0.7)) {
-    fail(`ikonene står feil: telefon (${phone.x},${phone.y}), kamera (${camera.x},${camera.y})`);
+  if (!(phone.x < W / 3 && Math.abs(sms.x - W / 2) < W / 8 && camera.x > W * 2 / 3 && phone.y > H * 0.7)) {
+    fail(`ikonene står feil: telefon (${phone.x},${phone.y}), meldinger (${sms.x}), kamera (${camera.x})`);
   }
+  tap(sms);
+  await sleep(2500);
+  const afterSms = topActivity();
+  console.log('Etter meldinger:', afterSms);
+  if (!/messag|mms|sms/i.test(afterSms)) fail('meldingsappen åpnet seg ikke');
+  await home();
   tap(phone);
   await sleep(2500);
   const afterPhone = topActivity();
@@ -345,12 +352,27 @@ console.log('Widgetside OK');
 // 6. Innstillinger
 await home();
 await need(/^\d{1,2}:\d{2}$/, 'klokke');
-longPress({ x: W / 2 | 0, y: H * 0.88 | 0 });
+// Tom plass mellom favorittene og snarveiene nederst.
+longPress({ x: W / 2 | 0, y: H * 0.75 | 0 });
 await need(/^Innstillinger$/, 'innstillinger');
 await need(/^Standard startskjerm$/, 'tilgangsliste');
 shot('8-innstillinger');
+// Skjul «Meldinger»-snarveien og sjekk at den forsvinner fra hjemskjermen.
+let smsRow = null;
+for (let i = 0; i < 4 && !smsRow; i++) {
+  smsRow = nodes(dump()).find((n) => n.text === 'Meldinger');
+  if (!smsRow) { sh(`adb shell input swipe ${W / 2 | 0} ${H * 0.7 | 0} ${W / 2 | 0} ${H * 0.35 | 0} 400`); await sleep(800); }
+}
+if (!smsRow) fail('fant ikke snarveien «Meldinger» i innstillingene');
+const toggle = nodes(dump()).filter((n) => n.text === 'på' && Math.abs(n.y - smsRow.y) < 30)[0];
+if (!toggle) fail('fant ikke av/på for «Meldinger»');
+tap(toggle);
+await need(/^av$/, 'snarveien slått av');
+shot('8b-snarvei-av');
 await home();
-console.log('Innstillinger OK');
+await needDesc('Telefon');
+if (nodes(dump()).some((n) => n.desc === 'Meldinger')) fail('«Meldinger» vises fortsatt på hjemskjermen');
+console.log('Innstillinger og snarveier OK');
 
 // 7. Varselfilter: demp varsler fra Shell (det er den som poster varsler fra adb).
 await sleep(1500);

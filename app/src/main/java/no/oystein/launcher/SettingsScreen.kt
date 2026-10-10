@@ -67,6 +67,17 @@ fun SettingsScreen(
                 ToggleRow("Tastatur åpnes i applisten", settings.autoKeyboard) { go { e.setAutoKeyboard(it) } }
             }
 
+            sectionHeader("Snarveier på hjemskjermen")
+            items(settings.shortcuts, key = { "shortcut:${it.kind.name}" }) { s ->
+                ListRow(s.kind.label) {
+                    TextAction("↑") { go { e.moveShortcut(s.kind, -1) } }
+                    TextAction("↓") { go { e.moveShortcut(s.kind, 1) } }
+                    TextAction(if (s.visible) "på" else "av", color = if (s.visible) Color.White else Dim) {
+                        go { e.setShortcutVisible(s.kind, !s.visible) }
+                    }
+                }
+            }
+
             sectionHeader("Favoritter")
             if (settings.favorites.isEmpty()) item { Hint("Hold inne på en app i applisten for å legge den til.") }
             items(settings.favorites, key = { "fav:$it" }) { key ->

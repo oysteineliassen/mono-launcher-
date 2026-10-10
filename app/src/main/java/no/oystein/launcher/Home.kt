@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.Icon
@@ -176,10 +177,17 @@ fun HomePage(
                 for (app in singles) FavoriteRow(app, settings, indent = false, onOpen, onMenu)
             }
             Spacer(Modifier.weight(1f))
-            // Snarveier nederst: telefon til venstre, kamera til høyre.
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                CornerIcon(Icons.Outlined.Phone, "Telefon") { openDialer(activity) }
-                CornerIcon(Icons.Outlined.PhotoCamera, "Kamera") { openCamera(activity) }
+            // Snarveiene nederst, fordelt over bredden (rekkefølge og synlighet velges i innstillingene).
+            val shortcuts = settings.shortcuts.filter { it.visible }
+            if (shortcuts.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (shortcuts.size == 1) Arrangement.Center else Arrangement.SpaceBetween,
+                ) {
+                    for (s in shortcuts) {
+                        CornerIcon(s.kind.icon(), s.kind.label) { openShortcut(activity, s.kind) }
+                    }
+                }
             }
         }
     }
@@ -226,6 +234,29 @@ private fun CornerIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = label, tint = Dim, modifier = Modifier.size(26.dp))
+    }
+}
+
+private fun ShortcutKind.icon(): ImageVector = when (this) {
+    ShortcutKind.PHONE -> Icons.Outlined.Phone
+    ShortcutKind.SMS -> Icons.Outlined.ChatBubbleOutline
+    ShortcutKind.CAMERA -> Icons.Outlined.PhotoCamera
+}
+
+private fun openShortcut(activity: MainActivity, kind: ShortcutKind) = when (kind) {
+    ShortcutKind.PHONE -> openDialer(activity)
+    ShortcutKind.SMS -> openMessages(activity)
+    ShortcutKind.CAMERA -> openCamera(activity)
+}
+
+/** Åpner standard meldingsapp. */
+private fun openMessages(activity: MainActivity) {
+    val main = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (runCatching { activity.startActivity(main) }.isFailure) {
+        // Reserve: «skriv ny melding» uten mottaker.
+        val compose = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { activity.startActivity(compose) }
     }
 }
 

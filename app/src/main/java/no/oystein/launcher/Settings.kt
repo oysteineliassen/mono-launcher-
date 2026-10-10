@@ -80,7 +80,37 @@ data class AppSettings(
     val use24h: Boolean = true,
     val showScreenTime: Boolean = true,
     val autoKeyboard: Boolean = true,
+    /** Snarveiene nederst på hjemskjermen, i rekkefølge fra venstre. */
+    val shortcuts: List<HomeShortcut> = defaultShortcuts(),
 )
+
+/** Snarveier som kan vises nederst på hjemskjermen. */
+enum class ShortcutKind(val label: String) {
+    PHONE("Telefon"),
+    SMS("Meldinger"),
+    CAMERA("Kamera"),
+}
+
+data class HomeShortcut(val kind: ShortcutKind, val visible: Boolean)
+
+fun defaultShortcuts() = listOf(
+    HomeShortcut(ShortcutKind.PHONE, true),
+    HomeShortcut(ShortcutKind.SMS, true),
+    HomeShortcut(ShortcutKind.CAMERA, true),
+)
+
+/** «PHONE:1,SMS:1,CAMERA:0». Snarveier som mangler (nye i en senere versjon) legges til bakerst. */
+private fun parseShortcuts(text: String?): List<HomeShortcut> {
+    if (text.isNullOrBlank()) return defaultShortcuts()
+    val list = text.split(',').mapNotNull { part ->
+        val (name, on) = part.split(':').let { it.getOrNull(0) to it.getOrNull(1) }
+        val kind = ShortcutKind.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
+        HomeShortcut(kind, on != "0")
+    }.distinctBy { it.kind }
+    return list + ShortcutKind.entries.filter { k -> list.none { it.kind == k } }.map { HomeShortcut(it, true) }
+}
+
+private fun List<HomeShortcut>.encodeShortcuts() = joinToString(",") { "${it.kind.name}:${if (it.visible) 1 else 0}" }
 
 object SettingsKeys {
     val favorites = stringPreferencesKey("favorites")
@@ -94,6 +124,7 @@ object SettingsKeys {
     val use24h = booleanPreferencesKey("use_24h")
     val showScreenTime = booleanPreferencesKey("show_screen_time")
     val autoKeyboard = booleanPreferencesKey("auto_keyboard")
+    val shortcuts = stringPreferencesKey("shortcuts")
     const val RENAME_PREFIX = "rename:"
     const val LIMIT_PREFIX = "limit:"
     const val GROUP_PREFIX = "group:"
@@ -131,6 +162,7 @@ fun Preferences.toSettings(): AppSettings {
         use24h = this[SettingsKeys.use24h] ?: true,
         showScreenTime = this[SettingsKeys.showScreenTime] ?: true,
         autoKeyboard = this[SettingsKeys.autoKeyboard] ?: true,
+        shortcuts = parseShortcuts(this[SettingsKeys.shortcuts]),
     )
 }
 
@@ -243,4 +275,25 @@ class SettingsEditor(private val context: Context) {
     suspend fun setShowScreenTime(on: Boolean) = edit { it[SettingsKeys.showScreenTime] = on }
 
     suspend fun setAutoKeyboard(on: Boolean) = edit { it[SettingsKeys.autoKeyboard] = on }
+
+    private fun MutablePreferences.editShortcuts(block: (MutableList<HomeShortcut>) -> Unit) {
+        val list = parseShortcuts(this[SettingsKeys.shortcuts]).toMutableList()
+        block(list)
+        this[SettingsKeys.shortcuts] = list.encodeShortcuts()
+    }
+
+    suspend fun moveShortcut(kind: ShortcutKind, delta: Int) = edit { p ->
+        p.editShortcuts { list ->
+            val i = list.indexOfFirst { it.kind == kind }
+            val j = i + delta
+            if (i >= 0 && j in list.indices) list[i] = list[j].also { list[j] = list[i] }
+        }
+    }
+
+    suspend fun setShortcutVisible(kind: ShortcutKind, on: Boolean) = edit { p ->
+        p.editShortcuts { list ->
+            val i = list.indexOfFirst { it.kind == kind }
+            if (i >= 0) list[i] = list[i].copy(visible = on)
+        }
+    }
 }
