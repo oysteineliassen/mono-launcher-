@@ -85,6 +85,18 @@ await home();
 
 const QUICK = process.env.QUICK === '1';
 
+// På hjemskjermen gir «hold inne» sorteringsmodus; menyen for en app åpnes med ⋯ til høyre.
+async function favoriteMenu(name) {
+  longPress(await need(new RegExp(`^${name}$`), `${name} på hjemskjermen`));
+  const end = Date.now() + 8000;
+  while (Date.now() < end) {
+    const more = nodes(dump()).find((n) => n.desc === `Valg for ${name}`);
+    if (more) { tap(more); await sleep(600); return; }
+    await sleep(500);
+  }
+  fail(`fant ikke ⋯ for ${name} i sorteringsmodus`);
+}
+
 // 1. Hjemskjerm
 await need(/^\d{1,2}:\d{2}$/, 'klokke', 30000);
 await need(/(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag) \d+\./, 'dato');
@@ -197,7 +209,7 @@ await need(/^Oppsett$/, 'tilbake på hjemskjermen');
 console.log('Pauseskjerm OK');
 
 // 4b. Grupper: legg Oppsett i gruppen «System» fra hjemskjermen.
-longPress(await need(/^Oppsett$/, 'Oppsett på hjemskjermen'));
+await favoriteMenu('Oppsett');
 tap(await need(/^Legg i gruppe$/, 'menyvalg gruppe'));
 await sleep(1000);
 sh('adb shell input text System');
@@ -500,7 +512,7 @@ const afterShortcut = topActivity();
 console.log('Etter snarvei:', afterShortcut);
 if (/no\.oystein\.launcher\/\.MainActivity/.test(afterShortcut)) fail('snarveien åpnet ingenting');
 await home();
-longPress(await need(/^Testsnarvei$/, 'snarveien på hjemskjermen'));
+await favoriteMenu('Testsnarvei');
 tap(await need(/^Fjern snarvei$/, 'menyvalget «Fjern snarvei»'));
 await sleep(2000);
 if (nodes(dump()).some((n) => n.text === 'Testsnarvei')) fail('snarveien ble ikke fjernet');
