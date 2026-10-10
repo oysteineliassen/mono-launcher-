@@ -48,8 +48,10 @@ class MainActivity : ComponentActivity() {
      * Et tidspunkt i stedet for et flagg: Android kan levere svar fra én dialog og starte neste før
      * onStart, og en dialog som bare pauser aktiviteten skal ikke påvirke en senere, ekte avslutning.
      */
-    private var internalLaunchAt = 0L
     private var stoppedForInternal = false
+
+    /** Gjenskapt av Android (f.eks. skjermrotasjon når widgetens oppsett lukkes): ikke hopp hjem da. */
+    private var recreated = false
 
     private fun markInternalLaunch() {
         internalLaunchAt = SystemClock.elapsedRealtime()
@@ -79,6 +81,11 @@ class MainActivity : ComponentActivity() {
         apps = AppRepository(this)
         widgets = WidgetController(this)
         editor = SettingsEditor(this)
+        recreated = savedInstanceState != null
+        // Widgeten som venter på tillatelse/oppsett må overleve at aktiviteten gjenskapes.
+        pendingWidgetId = savedInstanceState?.getInt(KEY_PENDING_WIDGET, -1) ?: -1
+        pendingWidgetInfo = widgets.info(pendingWidgetId)
+        Log.d(TAG, "onCreate recreated=$recreated pendingWidget=$pendingWidgetId")
         MutedNotifications.init(this)
         setContent { LauncherApp(this) }
     }
@@ -87,8 +94,14 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         runCatching { widgets.host.startListening() }
         _resumeCount.value++
-        if (!stoppedForInternal) _homeEvents.tryEmit(Unit)
+        if (!stoppedForInternal && !recreated) _homeEvents.tryEmit(Unit)
         stoppedForInternal = false
+        recreated = false
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(KEY_PENDING_WIDGET, pendingWidgetId)
     }
 
     override fun onStop() {
@@ -220,6 +233,10 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "Launcher"
+        private const val KEY_PENDING_WIDGET = "pending_widget"
+
+        /** Når vi sist åpnet noe selv. Delt i prosessen, så det overlever at aktiviteten gjenskapes. */
+        private var internalLaunchAt = 0L
         private const val REQ_CONFIGURE = 11
         private const val REQ_ROLE = 12
     }
