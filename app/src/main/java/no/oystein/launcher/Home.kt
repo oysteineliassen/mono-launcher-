@@ -18,7 +18,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -291,6 +293,8 @@ private fun ReorderableFavorites(
     var dragging by remember { mutableStateOf<String?>(null) }
     var offset by remember { mutableFloatStateOf(0f) }
     val heights = remember { mutableStateMapOf<String, Int>() }
+    // Radenes plass i listen (uten dra-forskyvning), målt av oppsettet selv.
+    val tops = remember { mutableStateMapOf<String, Float>() }
     val haptic = LocalHapticFeedback.current
     val currentEditing by rememberUpdatedState(editing)
     val scope = rememberCoroutineScope()
@@ -298,18 +302,23 @@ private fun ReorderableFavorites(
     val settle = remember { Animatable(0f) }
     var settlingKey by remember { mutableStateOf<String?>(null) }
 
-    fun top(i: Int): Float = (0 until i).sumOf { heights[order[it]] ?: 0 }.toFloat()
+    // Toppen av rad i (målt), og bunnen av listen for i == antall rader.
+    fun top(i: Int): Float = when {
+        i < order.size -> tops[order[i]] ?: (0 until i).sumOf { heights[order[it]] ?: 0 }.toFloat()
+        order.isEmpty() -> 0f
+        else -> top(order.lastIndex) + (heights[order.last()] ?: 0)
+    }
     fun height(i: Int): Float = (heights[order[i]] ?: 0).toFloat()
 
-    // Hvor appen havner hvis man slipper nå: der midten av den passerer midten av en annen.
+    // Hvor appen havner hvis man slipper nå: antall andre apper som har midten sin over midten av
+    // appen man drar. Da går det an å dra forbi mange i ett sveip.
     fun targetIndex(): Int {
-        val start = order.indexOf(dragging ?: return -1)
-        if (start < 0) return -1
-        val center = top(start) + height(start) / 2 + offset
-        var target = start
-        while (target < order.lastIndex && center >= top(target + 1) + height(target + 1) / 2) target++
-        while (target > 0 && center <= top(target - 1) + height(target - 1) / 2) target--
-        return target
+        val k = dragging ?: return -1
+        val myTop = tops[k] ?: return -1
+        val center = myTop + (heights[k] ?: 0) / 2f + offset
+        return order.count { other ->
+            other != k && (tops[other] ?: 0f) + (heights[other] ?: 0) / 2f < center
+        }
     }
 
     val start = dragging?.let { order.indexOf(it) } ?: -1
@@ -326,7 +335,11 @@ private fun ReorderableFavorites(
         val k = dragging ?: return
         val from = order.indexOf(k)
         val to = targetIndex()
-        android.util.Log.d("Launcher", "sortering: $k fra $from til $to (forskyvning ${offset.toInt()} px)")
+        android.util.Log.d(
+            "Launcher",
+            "sortering: $k fra $from til $to (forskyvning ${offset.toInt()} px, " +
+                "rader ${order.map { "${tops[it]?.toInt()}+${heights[it]}" }})",
+        )
         if (from >= 0 && to >= 0 && to != from) {
             // Avstanden mellom der fingeren slapp og der appen faktisk havner, så den kan gli på plass.
             val landTop = if (to > from) top(to) + height(to) - height(from) else top(to)
@@ -387,6 +400,7 @@ private fun ReorderableFavorites(
                     onMenu = { onMenu(app) },
                     modifier = Modifier
                         .onSizeChanged { heights[k] = it.height }
+                        .onGloballyPositioned { tops[k] = it.positionInParent().y }
                         .zIndex(if (isDragging || settlingKey == k) 1f else 0f)
                         .graphicsLayer {
                             translationY = when {
