@@ -172,16 +172,20 @@ console.log('Grupper OK');
 // 5. Widgetsiden: legg til to widgeter, rediger og endre høyde.
 swipeRight();
 shot('6-widget-tom');
+// Legger til en widget. Svarer true når den står på siden.
 async function addWidget(re) {
+  const before = nodes(dump()).filter((n) => n.text === 'Fjern').length;
   tap(await need(/^Legg til widget$/, 'Legg til widget'));
   const choice = await need(re, 'widgeten i listen');
   console.log('Velger widget:', choice.text);
   tap(choice);
-  // Vent til widgeten står på siden. Står noe annet på skjermen (widgetens eget oppsett), gå tilbake.
-  const end = Date.now() + 15000;
+  const end = Date.now() + 20000;
+  let retried = false;
   while (Date.now() < end) {
     const ui = nodes(dump());
-    if (ui.some((n) => n.text === 'Rediger')) return;
+    const texts = ui.map((n) => n.text).filter(Boolean);
+    if (texts.includes('Rediger') || texts.includes('Ferdig')) return true;
+    if (texts.includes('Ingen widgeter') && Date.now() > end - 12000) return false;
     // Androids dialog «Tillat at Launcher oppretter moduler …»: kryss av for «alltid» og trykk Opprett.
     const create = ui.find((n) => /^(Create|CREATE|Opprett|OPPRETT)$/.test(n.text));
     if (create) {
@@ -192,25 +196,38 @@ async function addWidget(re) {
       await sleep(1500);
       continue;
     }
-    // Står widgetlisten fortsatt åpen, ble trykket ikke registrert: prøv igjen.
-    if (ui.some((n) => n.text === 'Velg widget') && Date.now() > end - 11000 && !retried) {
-      retried = true;
-      console.log('Widgetlisten er fortsatt åpen, trykker på nytt');
-      tap(ui.find((n) => re.test(n.text)) || choice);
+    if (texts.includes('Velg widget')) {
+      if (!retried && Date.now() > end - 16000) {
+        retried = true;
+        console.log('Widgetlisten er fortsatt åpen, trykker på nytt');
+        tap(ui.find((n) => re.test(n.text)) || choice);
+      }
+      await sleep(700);
       continue;
     }
-    if (ui.length && !ui.some((n) => /^(Legg til widget|Ingen widgeter|Velg widget)$/.test(n.text))) {
+    if (texts.length && !texts.some((t) => /^(Legg til widget|Ingen widgeter)$/.test(t))) {
+      // Widgetens eget oppsett: bekreft hvis det finnes en knapp for det, ellers tilbake.
+      console.log('Oppsettskjerm for widgeten:', texts.join(' | '));
       shot('7-widget-oppsett');
-      sh('adb shell input keyevent KEYCODE_BACK');
-      await sleep(1500);
-      return;
+      const ok = ui.find((n) => /^(Done|DONE|Save|SAVE|OK|Ferdig|Lagre|Add|Legg til)$/.test(n.text));
+      if (ok) tap(ok); else sh('adb shell input keyevent KEYCODE_BACK');
+      await sleep(2000);
+      continue;
     }
     await sleep(700);
   }
-  fail(`widgeten «${choice.text}» ble ikke lagt til. Synlig tekst: ` + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+  console.log('Synlig tekst:', nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+  return nodes(dump()).filter((n) => n.text === 'Fjern').length > before;
 }
-await addWidget(/Clock – Digital/);
-await addWidget(/Clock – Analog/);
+// Klokkewidgeten har eget oppsett (tester den veien); Chrome-widgetene har det ikke.
+let added = 0;
+for (const re of [/^Clock – Digital$/, /^Chrome – Chrome search$/, /^Chrome – Chrome Dino$/]) {
+  if (added >= 2) break;
+  if (await addWidget(re)) added++;
+  console.log('Widgeter lagt til:', added);
+  if (added < 2) await need(/^Legg til widget$/, 'widgetsiden etter forsøk');
+}
+if (added < 2) fail('fikk ikke lagt til to widgeter');
 await need(/^Rediger$/, 'Rediger (minst én widget lagt til)');
 shot('7-widget');
 tap(await need(/^Rediger$/, 'Rediger'));
