@@ -310,14 +310,16 @@ private fun ReorderableFavorites(
     }
     fun height(i: Int): Float = (heights[order[i]] ?: 0).toFloat()
 
-    // Hvor appen havner hvis man slipper nå: antall andre apper som har midten sin over midten av
-    // appen man drar. Da går det an å dra forbi mange i ett sveip.
+    // Hvor appen havner hvis man slipper nå: antall andre apper som ligger over den. Drar man opp,
+    // holder det at toppkanten passerer midten av appen over (bunnkanten når man drar ned), så man
+    // når første og siste plass uten å måtte treffe på pikselen. Da går det også an å dra forbi
+    // mange i ett sveip.
     fun targetIndex(): Int {
         val k = dragging ?: return -1
         val myTop = tops[k] ?: return -1
-        val center = myTop + (heights[k] ?: 0) / 2f + offset
+        val edge = if (offset < 0) myTop + offset else myTop + (heights[k] ?: 0) + offset
         return order.count { other ->
-            other != k && (tops[other] ?: 0f) + (heights[other] ?: 0) / 2f < center
+            other != k && (tops[other] ?: 0f) + (heights[other] ?: 0) / 2f < edge
         }
     }
 
