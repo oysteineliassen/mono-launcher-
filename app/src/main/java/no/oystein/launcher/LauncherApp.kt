@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,6 +103,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     LaunchedEffect(Unit) {
         activity.homeEvents.collect {
             overlay = null
+            pinWidgetPageUntil = 0L
             query = ""
             showHidden = false
             expanded = emptySet()
@@ -112,6 +114,25 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     }
 
     LaunchedEffect(pager.settledPage) { android.util.Log.d("Launcher", "side=${pager.settledPage}") }
+
+    // Mens widgetpanelet er åpent, og en stund etter at en widget er valgt (tillatelse og oppsett i
+    // andre vinduer), skal siden bak stå stille på widgetsiden. Tastaturet i panelet endrer
+    // vindusstørrelsen, og det kunne få sidebladingen til å hoppe til hjemskjermen.
+    var pinWidgetPageUntil by remember { mutableLongStateOf(0L) }
+    val pinned = overlay == Overlay.WidgetPicker || android.os.SystemClock.elapsedRealtime() < pinWidgetPageUntil
+    LaunchedEffect(pager.currentPage, pinned) {
+        if (pinned && pager.currentPage != PAGE_WIDGET) {
+            android.util.Log.d("Launcher", "holder widgetsiden (var ${pager.currentPage})")
+            pager.scrollToPage(PAGE_WIDGET)
+        }
+    }
+    LaunchedEffect(pinWidgetPageUntil) {
+        val left = pinWidgetPageUntil - android.os.SystemClock.elapsedRealtime()
+        if (left > 0) {
+            kotlinx.coroutines.delay(left)
+            pinWidgetPageUntil = 0L
+        }
+    }
 
     val sorted = remember(allApps, settings) { allApps.sortedByLabel(settings) }
 
@@ -202,6 +223,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         Overlay.WidgetPicker -> WidgetSheet(
             controller = activity.widgets,
             onPick = {
+                pinWidgetPageUntil = android.os.SystemClock.elapsedRealtime() + 20_000
                 overlay = null
                 activity.pickWidget(it)
             },
