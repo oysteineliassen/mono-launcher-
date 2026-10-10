@@ -152,6 +152,18 @@ const gi = listNodes.findIndex((n) => n.text === 'System');
 const first = listNodes.findIndex((n) => /^(Calendar|Camera|Chrome|Clock)$/.test(n.text));
 if (gi < 0 || first < 0 || gi > first) fail('gruppen skal stå øverst i applisten: ' + listNodes.map((n) => n.text).join(' | '));
 shot('5c-gruppe-liste');
+// Bokstavlisten: hold på siste bokstav og sjekk at listen hopper dit.
+const letters = nodes(dump()).filter((n) => /^[A-ZÆØÅ#]$/.test(n.text) && n.x > W * 0.8);
+if (letters.length < 3) fail('fant ikke bokstavlisten: ' + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+const last = letters.reduce((a, b) => (b.y > a.y ? b : a));
+sh(`adb shell input swipe ${last.x} ${letters[0].y} ${last.x} ${last.y} 600`);
+await sleep(1200);
+shot('5d-bokstaver');
+const after = nodes(dump()).filter((n) => n.text && n.x < W * 0.8);
+if (!after.some((n) => n.text.toUpperCase().startsWith(last.text))) {
+  fail(`listen hoppet ikke til «${last.text}»: ` + after.map((n) => n.text).join(' | '));
+}
+console.log(`Bokstavliste OK (${letters.map((n) => n.text).join('')})`);
 await home();
 console.log('Grupper OK');
 

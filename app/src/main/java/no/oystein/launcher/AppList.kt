@@ -1,11 +1,13 @@
 package no.oystein.launcher
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -39,6 +42,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import java.text.Normalizer
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -81,6 +86,19 @@ fun AppListPage(
     }
 
     // Tastaturet følger siden og eventuelle dialoger; søket nullstilles bare når man forlater siden.
+    // Første plass i listen for hver forbokstav blant enkeltappene (grupper og åpne gruppeapper ligger før).
+    val letterIndex = remember(groups, singles, expanded, query, settings) {
+        var idx = 1 // mellomrommet øverst i listen
+        for (g in groups) {
+            idx += 1
+            if (query.isNotBlank() || g.name in expanded) idx += g.apps.size
+        }
+        val map = LinkedHashMap<Char, Int>()
+        singles.forEachIndexed { i, a -> map.putIfAbsent(firstLetter(a.label(settings)), idx + i) }
+        map
+    }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(isCurrent, overlayOpen) {
         if (isCurrent && !overlayOpen && settings.autoKeyboard) {
             runCatching { focusRequester.requestFocus() }
@@ -110,80 +128,90 @@ fun AppListPage(
             .padding(horizontal = 32.dp)
     ) {
         Spacer(Modifier.height(32.dp))
-        BasicTextField(
-            value = query,
-            onValueChange = onQuery,
-            singleLine = true,
-            textStyle = TextStyle(color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Light),
-            cursorBrush = SolidColor(Color.White),
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Go,
-                autoCorrectEnabled = false,
-                capitalization = KeyboardCapitalization.None,
-            ),
-            keyboardActions = KeyboardActions(onGo = { results.firstOrNull()?.let { openAndReset(it) } }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .testTag("search"),
-            decorationBox = { field ->
-                Box(Modifier.fillMaxWidth()) {
-                    if (query.isEmpty()) Text("Søk", fontSize = 24.sp, color = Faint, fontWeight = FontWeight.Light)
-                    field()
-                }
-            },
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = query,
+                onValueChange = onQuery,
+                singleLine = true,
+                textStyle = TextStyle(color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Light),
+                cursorBrush = SolidColor(Color.White),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Go,
+                    autoCorrectEnabled = false,
+                    capitalization = KeyboardCapitalization.None,
+                ),
+                keyboardActions = KeyboardActions(onGo = { results.firstOrNull()?.let { openAndReset(it) } }),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .testTag("search"),
+                decorationBox = { field ->
+                    Box(Modifier.fillMaxWidth()) {
+                        if (query.isEmpty()) Text("Søk", fontSize = 24.sp, color = Faint, fontWeight = FontWeight.Light)
+                        field()
+                    }
+                },
+            )
+            Text(
+                "Innstillinger",
+                fontSize = 15.sp,
+                color = Dim,
+                modifier = Modifier
+                    .clickable { keyboard?.hide(); onSettings() }
+                    .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+            )
+        }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = Faint)
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("applist")) {
-            item { Spacer(Modifier.height(8.dp)) }
-            for (group in groups) {
-                val open = query.isNotBlank() || group.name in expanded
-                item(key = "g:" + group.name) {
-                    GroupHeader(
-                        group = group,
-                        expanded = open,
-                        fontSize = 22.sp,
-                        verticalPadding = 11,
-                        onToggle = { onToggleGroup(group.name) },
-                        onMenu = { onGroupMenu(group.name) },
-                    )
-                }
-                if (open) {
-                    items(group.apps, key = { "g:${group.name}:${it.key}" }) { app ->
-                        AppRow(app, settings, usage, indent = true, onOpen = ::openAndReset, onMenu = onMenu)
+        Row(Modifier.fillMaxSize()) {
+            LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxHeight().testTag("applist")) {
+                item { Spacer(Modifier.height(8.dp)) }
+                for (group in groups) {
+                    val open = query.isNotBlank() || group.name in expanded
+                    item(key = "g:" + group.name) {
+                        GroupHeader(
+                            group = group,
+                            expanded = open,
+                            fontSize = 22.sp,
+                            verticalPadding = 11,
+                            onToggle = { onToggleGroup(group.name) },
+                            onMenu = { onGroupMenu(group.name) },
+                        )
+                    }
+                    if (open) {
+                        items(group.apps, key = { "g:${group.name}:${it.key}" }) { app ->
+                            AppRow(app, settings, usage, indent = true, onOpen = ::openAndReset, onMenu = onMenu)
+                        }
                     }
                 }
-            }
-            items(singles, key = { it.key }) { app ->
-                AppRow(app, settings, usage, indent = false, onOpen = ::openAndReset, onMenu = onMenu)
-            }
-            if (results.isEmpty() && groups.isEmpty() && query.isNotBlank()) {
-                item { Text("Ingen treff", fontSize = 18.sp, color = Faint, modifier = Modifier.padding(vertical = 12.dp)) }
-            }
-            item {
-                Spacer(Modifier.height(24.dp))
-                if (hiddenCount > 0) {
-                    Text(
-                        if (showHidden) "Skjul skjulte apper" else "Vis skjulte apper ($hiddenCount)",
-                        fontSize = 16.sp,
-                        color = Dim,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(onClick = { onShowHidden(!showHidden) })
-                            .padding(vertical = 10.dp),
-                    )
+                items(singles, key = { it.key }) { app ->
+                    AppRow(app, settings, usage, indent = false, onOpen = ::openAndReset, onMenu = onMenu)
                 }
-                Text(
-                    "Innstillinger",
-                    fontSize = 16.sp,
-                    color = Dim,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(onClick = { keyboard?.hide(); onSettings() })
-                        .padding(vertical = 10.dp),
+                if (results.isEmpty() && groups.isEmpty() && query.isNotBlank()) {
+                    item { Text("Ingen treff", fontSize = 18.sp, color = Faint, modifier = Modifier.padding(vertical = 12.dp)) }
+                }
+                item {
+                    Spacer(Modifier.height(24.dp))
+                    if (hiddenCount > 0) {
+                        Text(
+                            if (showHidden) "Skjul skjulte apper" else "Vis skjulte apper ($hiddenCount)",
+                            fontSize = 16.sp,
+                            color = Dim,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(onClick = { onShowHidden(!showHidden) })
+                                .padding(vertical = 10.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(48.dp))
+                }
+            }
+            if (query.isBlank() && letterIndex.size > 1) {
+                AlphabetBar(
+                    letters = letterIndex.keys.toList(),
+                    onLetter = { c -> letterIndex[c]?.let { scope.launch { listState.scrollToItem(it) } } },
+                    modifier = Modifier.fillMaxHeight().padding(vertical = 8.dp),
                 )
-                Spacer(Modifier.height(48.dp))
             }
         }
     }
@@ -221,4 +249,12 @@ private fun AppRow(
             Text(Usage.format(used), fontSize = 13.sp, color = Faint)
         }
     }
+}
+
+/** Forbokstav for bokstavlisten: Æ, Ø og Å beholdes, andre aksenter fjernes, alt som ikke er bokstav blir #. */
+fun firstLetter(label: String): Char {
+    val c = label.trim().firstOrNull()?.uppercaseChar() ?: return '#'
+    if (c in "ÆØÅ") return c
+    val base = Normalizer.normalize(c.toString(), Normalizer.Form.NFD).first().uppercaseChar()
+    return if (base.isLetter()) base else '#'
 }
