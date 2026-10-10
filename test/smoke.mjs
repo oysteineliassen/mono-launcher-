@@ -172,21 +172,24 @@ swipeRight();
 shot('6-widget-tom');
 async function addWidget(re) {
   tap(await need(/^Legg til widget$/, 'Legg til widget'));
-  await sleep(1500);
-  const list = nodes(dump()).filter((n) => n.text && !/^(Velg widget|Lukk)$/.test(n.text));
-  if (!list.length) fail('ingen widgeter i listen');
-  const choice = list.find((n) => re.test(n.text)) || list[0];
+  const choice = await need(re, 'widgeten i listen');
   console.log('Velger widget:', choice.text);
   tap(choice);
-  await sleep(4000);
-  if (!nodes(dump()).some((n) => n.text === 'Rediger')) {
-    // Widgeten åpnet et oppsettvindu – gå tilbake (widgeten legges ikke til da).
-    shot('7-widget-oppsett');
-    sh('adb shell input keyevent KEYCODE_BACK');
-    await sleep(1500);
+  // Vent til widgeten står på siden. Står noe annet på skjermen (widgetens eget oppsett), gå tilbake.
+  const end = Date.now() + 15000;
+  while (Date.now() < end) {
+    const ui = nodes(dump());
+    if (ui.some((n) => n.text === 'Rediger')) return;
+    if (ui.length && !ui.some((n) => /^(Legg til widget|Ingen widgeter|Velg widget)$/.test(n.text))) {
+      shot('7-widget-oppsett');
+      sh('adb shell input keyevent KEYCODE_BACK');
+      await sleep(1500);
+      return;
+    }
+    await sleep(700);
   }
+  fail(`widgeten «${choice.text}» ble ikke lagt til`);
 }
-// Klokkewidgetene har ikke eget oppsettvindu, så begge skal havne på siden.
 await addWidget(/Clock – Digital/);
 await addWidget(/Clock – Analog/);
 await need(/^Rediger$/, 'Rediger (minst én widget lagt til)');
