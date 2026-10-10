@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
@@ -25,7 +26,11 @@ data class AppEntry(
     val user: UserHandle,
     val originalLabel: String,
     val isWorkProfile: Boolean,
-)
+    /** Satt for festede snarveier (f.eks. nettapper/PWA lagt til fra Chrome), ellers null. */
+    val shortcut: ShortcutInfo? = null,
+) {
+    val isShortcut: Boolean get() = shortcut != null
+}
 
 class AppRepository(private val context: Context) {
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
@@ -50,8 +55,47 @@ class AppRepository(private val context: Context) {
                     isWorkProfile = work,
                 )
             }
+            result += loadPinnedShortcuts(user, work, serial)
         }
         return result
+    }
+
+    /**
+     * Snarveier som er festet til denne launcheren (nettapper/PWA fra Chrome, kontakter o.l.).
+     * Krever at launcheren er standard startskjerm; ellers er listen tom.
+     */
+    private fun loadPinnedShortcuts(user: UserHandle, work: Boolean, serial: Long): List<AppEntry> {
+        if (!runCatching { launcherApps.hasShortcutHostPermission() }.getOrDefault(false)) return emptyList()
+        val query = LauncherApps.ShortcutQuery().setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+        val shortcuts = runCatching { launcherApps.getShortcuts(query, user) }.getOrNull().orEmpty()
+        return shortcuts.filter { it.isEnabled }.map { sc ->
+            val base = "shortcut:${sc.`package`}/${sc.id}"
+            AppEntry(
+                key = if (work) "$base@$serial" else base,
+                packageName = sc.`package`,
+                component = sc.activity ?: ComponentName(sc.`package`, ""),
+                user = user,
+                originalLabel = (sc.shortLabel ?: sc.longLabel ?: sc.id).toString(),
+                isWorkProfile = work,
+                shortcut = sc,
+            )
+        }
+    }
+
+    /** Tar imot en snarvei eller widget som en app ber om å feste (f.eks. «Legg til på startskjermen» i Chrome). */
+    fun pinRequest(intent: Intent): LauncherApps.PinItemRequest? =
+        runCatching { launcherApps.getPinItemRequest(intent) }.getOrNull()
+
+    /** Fjerner en festet snarvei (selve appen den hører til blir værende). */
+    fun unpin(app: AppEntry) {
+        val sc = app.shortcut ?: return
+        runCatching {
+            val query = LauncherApps.ShortcutQuery()
+                .setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                .setPackage(sc.`package`)
+            val keep = launcherApps.getShortcuts(query, app.user).orEmpty().map { it.id }.filter { it != sc.id }
+            launcherApps.pinShortcuts(sc.`package`, keep, app.user)
+        }
     }
 
     /** Sender et signal hver gang apper installeres, fjernes eller endres. */
@@ -62,13 +106,21 @@ class AppRepository(private val context: Context) {
             override fun onPackageChanged(packageName: String?, user: UserHandle?) { trySend(Unit) }
             override fun onPackagesAvailable(p: Array<out String>?, user: UserHandle?, r: Boolean) { trySend(Unit) }
             override fun onPackagesUnavailable(p: Array<out String>?, user: UserHandle?, r: Boolean) { trySend(Unit) }
+            override fun onShortcutsChanged(packageName: String, shortcuts: MutableList<ShortcutInfo>, user: UserHandle) {
+                trySend(Unit)
+            }
         }
         launcherApps.registerCallback(cb, Handler(Looper.getMainLooper()))
         awaitClose { launcherApps.unregisterCallback(cb) }
     }
 
     fun launch(app: AppEntry, bounds: Rect? = null): Boolean = try {
-        launcherApps.startMainActivity(app.component, app.user, bounds, null)
+        val sc = app.shortcut
+        if (sc != null) {
+            launcherApps.startShortcut(sc, bounds, null)
+        } else {
+            launcherApps.startMainActivity(app.component, app.user, bounds, null)
+        }
         true
     } catch (e: Exception) {
         false
@@ -76,7 +128,13 @@ class AppRepository(private val context: Context) {
 
     fun openAppInfo(app: AppEntry) {
         try {
-            launcherApps.startAppDetailsActivity(app.component, app.user, null, null)
+            // For en snarvei vises info om appen som eier den (f.eks. Chrome).
+            val cn = if (app.isShortcut) {
+                context.packageManager.getLaunchIntentForPackage(app.packageName)?.component ?: app.component
+            } else {
+                app.component
+            }
+            launcherApps.startAppDetailsActivity(cn, app.user, null, null)
         } catch (_: Exception) {
         }
     }

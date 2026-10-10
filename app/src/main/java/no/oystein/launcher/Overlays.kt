@@ -172,7 +172,11 @@ fun AppMenu(
             }
         }
         MenuItem("Appinfo") { activity.apps.openAppInfo(app); onClose() }
-        MenuItem("Avinstaller") { activity.apps.uninstall(app); onClose() }
+        if (app.isShortcut) {
+            MenuItem("Fjern snarvei") { activity.apps.unpin(app); onClose() }
+        } else {
+            MenuItem("Avinstaller") { activity.apps.uninstall(app); onClose() }
+        }
     }
 }
 

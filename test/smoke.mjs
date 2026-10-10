@@ -391,5 +391,24 @@ await need(/Testvarsel/, 'det dempede varselet i listen');
 shot('10-varselliste');
 console.log('Varselfilter OK');
 
+// 8. Festede snarveier (nettapper/PWA): be om å feste en snarvei slik Chrome gjør.
+await home();
+sh(`adb shell am broadcast -a ${PKG}.TEST_PIN -p ${PKG}`);
+const pinned = await waitText(/^Testsnarvei$/, 15000);
+console.log('Launcher-logg (snarvei):\n' + sh(`adb logcat -d -s Launcher:D | grep -i -E "shortcut|pin"`));
+if (!pinned) fail('den festede snarveien dukket ikke opp på hjemskjermen');
+shot('11-snarvei');
+tap(pinned);
+await sleep(3000);
+const afterShortcut = topActivity();
+console.log('Etter snarvei:', afterShortcut);
+if (/no\.oystein\.launcher\/\.MainActivity/.test(afterShortcut)) fail('snarveien åpnet ingenting');
+await home();
+longPress(await need(/^Testsnarvei$/, 'snarveien på hjemskjermen'));
+tap(await need(/^Fjern snarvei$/, 'menyvalget «Fjern snarvei»'));
+await sleep(2000);
+if (nodes(dump()).some((n) => n.text === 'Testsnarvei')) fail('snarveien ble ikke fjernet');
+console.log('Festede snarveier OK');
+
 assertAlive();
 console.log('Røyktest OK');

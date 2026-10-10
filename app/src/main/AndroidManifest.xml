@@ -35,6 +35,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Tar imot «legg til på startskjermen» (snarveier og nettapper) og widgeter fra andre apper. -->
+        <activity
+            android:name=".PinActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT" />
+                <action android:name="android.content.pm.action.CONFIRM_PIN_APPWIDGET" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".NotificationFilterService"
             android:exported="true"

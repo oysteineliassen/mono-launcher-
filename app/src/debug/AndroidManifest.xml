@@ -7,6 +7,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="no.oystein.launcher.TEST_MUTE" />
+                <action android:name="no.oystein.launcher.TEST_PIN" />
             </intent-filter>
         </receiver>
     </application>

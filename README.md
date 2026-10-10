@@ -19,6 +19,9 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 - **Hold inne på tom plass** på hjemskjermen: innstillinger (tilganger, favorittrekkefølge, widget, pauseskjerm,
   grenser, dempede apper, skjulte apper, skjermtid i dag).
 - **Sveip ned** på hjemskjermen: varselpanelet. Trykk på klokken for alarmer, på datoen for kalenderen.
+- **Nettapper (PWA) og snarveier:** «Legg til på startskjermen»/«Installer» i Chrome legger snarveien i applisten og
+  på hjemskjermen. Hold inne på den og velg «Fjern snarvei» for å fjerne den. Snarveier som ble lagt til mens en annen
+  startskjerm var standard, følger ikke med – legg dem til på nytt fra Chrome.
 - **Hjem-knappen** går alltid tilbake til hjemskjermen. Det gjør også opplåsing.
 
 **Pauseskjerm:** for valgte apper vises en nedtelling (standard 10 sek) før «Åpne» dukker opp. Når dagens grense
