@@ -68,7 +68,7 @@ function assertAlive() {
 // Tilganger som ellers gis i innstillingene på telefonen.
 sh(`adb shell appops set ${PKG} GET_USAGE_STATS allow`);
 sh(`adb shell cmd notification allow_listener ${PKG}/${PKG}.NotificationFilterService`);
-sh(`adb shell appwidget grantbind --package ${PKG}`);
+// Ingen «appwidget grantbind»: testen går gjennom Androids tillatelsesdialog slik brukeren gjør.
 // Rolletjenesten er ikke alltid klar rett etter oppstart av emulatoren, så prøv flere ganger.
 for (let i = 0; ; i++) {
   try { sh(`adb shell cmd package set-home-activity ${PKG}/.MainActivity`); break; } catch {}
@@ -180,6 +180,16 @@ async function addWidget(re) {
   while (Date.now() < end) {
     const ui = nodes(dump());
     if (ui.some((n) => n.text === 'Rediger')) return;
+    // Androids dialog «Tillat at Launcher oppretter moduler …»: kryss av for «alltid» og trykk Opprett.
+    const create = ui.find((n) => /^(Create|CREATE|Opprett|OPPRETT)$/.test(n.text));
+    if (create) {
+      shot('7-widget-tillatelse');
+      const always = ui.find((n) => /Always allow|Tillat alltid/i.test(n.text));
+      if (always) tap(always);
+      tap(create);
+      await sleep(1500);
+      continue;
+    }
     if (ui.length && !ui.some((n) => /^(Legg til widget|Ingen widgeter|Velg widget)$/.test(n.text))) {
       shot('7-widget-oppsett');
       sh('adb shell input keyevent KEYCODE_BACK');
