@@ -307,8 +307,8 @@ private fun ReorderableFavorites(
         if (start < 0) return -1
         val center = top(start) + height(start) / 2 + offset
         var target = start
-        while (target < order.lastIndex && center > top(target + 1) + height(target + 1) / 2) target++
-        while (target > 0 && center < top(target - 1) + height(target - 1) / 2) target--
+        while (target < order.lastIndex && center >= top(target + 1) + height(target + 1) / 2) target++
+        while (target > 0 && center <= top(target - 1) + height(target - 1) / 2) target--
         return target
     }
 
@@ -410,10 +410,11 @@ private fun ReorderableFavorites(
                                 onDragCancel = { drop() },
                             ) { change, amount ->
                                 change.consume()
-                                // Ikke lenger enn til toppen/bunnen av listen.
+                                // Ikke lenger enn litt forbi toppen/bunnen av listen (litt slingringsmonn, så
+                                // man alltid når første og siste plass).
                                 val i0 = order.indexOf(k)
-                                val minOffset = -top(i0)
-                                val maxOffset = top(order.size) - top(i0) - height(i0)
+                                val minOffset = -top(i0) - height(i0) / 2
+                                val maxOffset = top(order.size) - top(i0) - height(i0) / 2
                                 offset = (offset + amount.y).coerceIn(minOffset, maxOffset)
                             }
                         },
