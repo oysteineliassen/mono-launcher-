@@ -110,8 +110,13 @@ console.log('Appliste og søk OK');
 if (QUICK) {
   // Rask sjekk av det krympede release-bygget: hjem, appliste og widgetside uten krasj.
   await home();
-  swipeRight();
-  await need(/^(Legg til widget|Rediger)$/, 'widgetsiden');
+  await sleep(1500); // la tastaturet lukke seg først
+  let page = null;
+  for (let i = 0; i < 3 && !page; i++) {
+    swipeRight();
+    page = await waitText(/^(Legg til widget|Rediger)$/, 6000);
+  }
+  if (!page) fail('fant ikke widgetsiden i release-bygget');
   shot('release-widget');
   await home();
   assertAlive();
