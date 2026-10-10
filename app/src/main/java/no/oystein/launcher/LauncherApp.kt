@@ -111,6 +111,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         }
     }
 
+    LaunchedEffect(pager.settledPage) { android.util.Log.d("Launcher", "side=${pager.settledPage}") }
+
     val sorted = remember(allApps, settings) { allApps.sortedByLabel(settings) }
 
     fun open(app: AppEntry) {

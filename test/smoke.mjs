@@ -309,6 +309,8 @@ async function addWidget(re, query) {
       continue;
     }
     if (texts.some((t) => /^(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag) \d+\./.test(t))) {
+      console.log('Noder:', ui.filter((n) => n.text || n.desc).map((n) => `${n.text || n.desc}@${n.x},${n.y}`).join(' | '));
+      console.log('Øverste aktivitet:', topActivity());
       fail('launcheren hoppet til hjemskjermen under widgetoppsettet (skal bli på widgetsiden)');
     }
     const ours = texts.some((t) => /^(Legg til widget|Ingen widgeter|\+ Legg til|Ferdig)$/.test(t)) ||
