@@ -326,6 +326,7 @@ private fun ReorderableFavorites(
         val k = dragging ?: return
         val from = order.indexOf(k)
         val to = targetIndex()
+        android.util.Log.d("Launcher", "sortering: $k fra $from til $to (forskyvning ${offset.toInt()} px)")
         if (from >= 0 && to >= 0 && to != from) {
             // Avstanden mellom der fingeren slapp og der appen faktisk havner, så den kan gli på plass.
             val landTop = if (to > from) top(to) + height(to) - height(from) else top(to)

@@ -268,14 +268,9 @@ const ys = async () => {
 let pos = await ys();
 if (!(pos.Calendar < pos.Camera && pos.Camera < pos.Chrome)) fail('uventet rekkefølge før sortering: ' + JSON.stringify(pos));
 const chromeNode = await need(/^Chrome$/, 'Chrome');
-sh(`adb shell input motionevent DOWN ${chromeNode.x} ${pos.Chrome}`);
-await sleep(1200);
 const toY = pos.Calendar - 20;
-for (let i = 1; i <= 10; i++) {
-  sh(`adb shell input motionevent MOVE ${chromeNode.x} ${Math.round(pos.Chrome + (toY - pos.Chrome) * i / 10)}`);
-  await sleep(80);
-}
-sh(`adb shell input motionevent UP ${chromeNode.x} ${toY}`);
+// Androids eget «hold inne og dra»: holder like lenge som et langt trykk, og drar så jevnt.
+sh(`adb shell input draganddrop ${chromeNode.x} ${pos.Chrome} ${chromeNode.x} ${toY} 2500`);
 await sleep(1200);
 shot('5e-sortering');
 await need(/^Ferdig$/, 'Ferdig i sorteringsmodus');
@@ -286,6 +281,7 @@ if (nodes(dump()).some((n) => n.desc === 'Valg for Chrome')) fail('⋯ vises for
 await home();
 pos = await ys();
 console.log('Etter sortering:', JSON.stringify(pos));
+console.log(sh(`adb logcat -d -s Launcher:D | grep sortering || true`));
 if (!(pos.Chrome < pos.Calendar && pos.Calendar < pos.Camera)) {
   fail('Chrome skulle havne øverst i ett sveip (forbi to apper): ' + JSON.stringify(pos));
 }
