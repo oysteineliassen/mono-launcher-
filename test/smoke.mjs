@@ -8,6 +8,7 @@ const sh = (c) => execSync(c, { encoding: 'utf8', maxBuffer: 64 << 20 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function fail(msg) {
   console.error('FEIL: ' + msg);
+  try { console.error('Launcher-logg:\n' + sh(`adb logcat -d -s Launcher:D`)); } catch {}
   try { console.error(sh(`adb logcat -d -s AndroidRuntime:E | tail -60`)); } catch {}
   shot('feil');
   process.exit(1);
@@ -92,6 +93,7 @@ console.log('Hjemskjerm OK');
 swipeLeft();
 {
   const end = Date.now() + 15000;
+  let retried = false;
   let field = null;
   while (!field && Date.now() < end) { field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText'); if (!field) await sleep(700); }
   if (!field) fail('fant ikke søkefelt. Synlig tekst: ' + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
@@ -190,6 +192,13 @@ async function addWidget(re) {
       await sleep(1500);
       continue;
     }
+    // Står widgetlisten fortsatt åpen, ble trykket ikke registrert: prøv igjen.
+    if (ui.some((n) => n.text === 'Velg widget') && Date.now() > end - 11000 && !retried) {
+      retried = true;
+      console.log('Widgetlisten er fortsatt åpen, trykker på nytt');
+      tap(ui.find((n) => re.test(n.text)) || choice);
+      continue;
+    }
     if (ui.length && !ui.some((n) => /^(Legg til widget|Ingen widgeter|Velg widget)$/.test(n.text))) {
       shot('7-widget-oppsett');
       sh('adb shell input keyevent KEYCODE_BACK');
@@ -198,7 +207,7 @@ async function addWidget(re) {
     }
     await sleep(700);
   }
-  fail(`widgeten «${choice.text}» ble ikke lagt til`);
+  fail(`widgeten «${choice.text}» ble ikke lagt til. Synlig tekst: ` + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
 }
 await addWidget(/Clock – Digital/);
 await addWidget(/Clock – Analog/);
@@ -235,6 +244,7 @@ if (xAfter > xBefore - W / 4) fail('ny størrelse ble ikke lagret');
 shot('7c-widget-lagret');
 tap(await need(/^Ferdig$/, 'Ferdig'));
 assertAlive();
+console.log('Launcher-logg:\n' + sh(`adb logcat -d -s Launcher:D`));
 console.log('Widgetside OK');
 
 // 6. Innstillinger

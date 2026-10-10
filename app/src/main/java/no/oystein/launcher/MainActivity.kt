@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private val bindWidget = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val id = pendingWidgetId
         val info = pendingWidgetInfo
+        Log.d(TAG, "bind result=${res.resultCode} id=$id")
         if (res.resultCode == RESULT_OK && id >= 0 && info != null) {
             configureWidget(id, info)
         } else {
@@ -127,9 +129,12 @@ class MainActivity : ComponentActivity() {
 
     fun pickWidget(info: AppWidgetProviderInfo) {
         val id = widgets.allocate()
+        Log.d(TAG, "pickWidget ${info.provider.flattenToShortString()} id=$id")
         pendingWidgetId = id
         pendingWidgetInfo = info
-        if (widgets.manager.bindAppWidgetIdIfAllowed(id, info.profile, info.provider, null)) {
+        val allowed = widgets.manager.bindAppWidgetIdIfAllowed(id, info.profile, info.provider, null)
+        Log.d(TAG, "bindAppWidgetIdIfAllowed=$allowed")
+        if (allowed) {
             configureWidget(id, info)
         } else {
             keepState = true
@@ -144,6 +149,7 @@ class MainActivity : ComponentActivity() {
     private fun configureWidget(id: Int, info: AppWidgetProviderInfo) {
         val optional = Build.VERSION.SDK_INT >= 31 &&
             info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
+        Log.d(TAG, "configureWidget id=$id configure=${info.configure} optional=$optional")
         if (info.configure != null && !optional) {
             keepState = true
             try {
@@ -159,6 +165,7 @@ class MainActivity : ComponentActivity() {
     private fun finishWidget(id: Int) {
         pendingWidgetId = -1
         val info = widgets.info(id)
+        Log.d(TAG, "finishWidget id=$id info=${info?.provider}")
         val cellW = resources.configuration.screenWidthDp / GRID_COLUMNS.toFloat()
         val (w, h) = widgets.defaultCells(info, cellW, GRID_CELL_HEIGHT_DP)
         lifecycleScope.launch {
@@ -179,6 +186,7 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_CONFIGURE) {
+            Log.d(TAG, "configure result=$resultCode id=$pendingWidgetId")
             val id = pendingWidgetId
             if (id < 0) return
             if (resultCode == RESULT_OK) {
@@ -191,6 +199,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        private const val TAG = "Launcher"
         private const val REQ_CONFIGURE = 11
         private const val REQ_ROLE = 12
     }
