@@ -140,8 +140,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         when (page) {
             PAGE_WIDGET -> WidgetPage(
                 activity = activity,
-                widgetId = settings.widgetId,
-                onPick = { overlay = Overlay.WidgetPicker },
+                widgets = settings.widgets,
+                onAdd = { overlay = Overlay.WidgetPicker },
             )
             PAGE_HOME -> HomePage(
                 activity = activity,

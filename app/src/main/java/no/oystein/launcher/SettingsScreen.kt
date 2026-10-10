@@ -45,9 +45,6 @@ fun SettingsScreen(
     val isDefault = remember(resumeCount) { activity.isDefaultLauncher() }
     val hasNotif = remember(resumeCount) { MutedNotifications.hasAccess(activity) }
     val hasUsage = remember(resumeCount) { Usage.hasPermission(activity) }
-    val widgetLabel = remember(settings.widgetId) {
-        activity.widgets.info(settings.widgetId)?.let { activity.widgets.label(it) }
-    }
 
     fun go(block: suspend () -> Unit) {
         scope.launch { block() }
@@ -91,13 +88,12 @@ fun SettingsScreen(
                 }
             }
 
-            sectionHeader("Widget (sveip til høyre)")
-            item {
-                ListRow(widgetLabel ?: "Ingen") {
-                    TextAction("Velg", onClick = onPickWidget)
-                    if (widgetLabel != null) TextAction("Fjern") { activity.removeWidget() }
-                }
+            sectionHeader("Widgeter (sveip til høyre)")
+            items(settings.widgets, key = { "widget:${it.id}" }) { w ->
+                val label = remember(w.id) { activity.widgets.info(w.id)?.let { activity.widgets.label(it) } ?: "Ukjent widget" }
+                ListRow(label) { TextAction("Fjern") { activity.removeWidget(w.id) } }
             }
+            item { ListRow(if (settings.widgets.isEmpty()) "Ingen" else "") { TextAction("Legg til", onClick = onPickWidget) } }
 
             sectionHeader("Pauseskjerm")
             item {

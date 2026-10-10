@@ -35,8 +35,15 @@ class WidgetController(context: Context) {
     }
 
     /** Fjerner ID-er som er tildelt men ikke i bruk (f.eks. etter avbrutt valg). */
-    fun cleanup(keep: Int) {
-        host.appWidgetIds.filter { it != keep }.forEach { host.deleteAppWidgetId(it) }
+    fun cleanup(keep: Set<Int>) {
+        host.appWidgetIds.filter { it !in keep }.forEach { host.deleteAppWidgetId(it) }
+    }
+
+    /** Startstørrelse for en ny widget: det widgeten selv ber om, men minst 160 dp. */
+    fun defaultHeightDp(info: AppWidgetProviderInfo?): Int {
+        val density = appContext.resources.displayMetrics.density
+        val wanted = info?.minHeight?.let { (it / density).toInt() } ?: 0
+        return wanted.coerceIn(160, 600)
     }
 
     fun createView(context: Context, id: Int): AppWidgetHostView? {

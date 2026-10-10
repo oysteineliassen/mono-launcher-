@@ -158,19 +158,17 @@ class MainActivity : ComponentActivity() {
 
     private fun finishWidget(id: Int) {
         pendingWidgetId = -1
+        val info = widgets.info(id)
         lifecycleScope.launch {
-            val old = settingsFlow().first().widgetId
-            if (old != id) widgets.delete(old)
-            editor.setWidgetId(id)
-            widgets.cleanup(keep = id)
+            editor.addWidget(WidgetSlot(id, widgets.defaultHeightDp(info), half = false))
+            widgets.cleanup(keep = settingsFlow().first().widgets.map { it.id }.toSet())
         }
     }
 
-    fun removeWidget() {
+    fun removeWidget(id: Int) {
         lifecycleScope.launch {
-            val old = settingsFlow().first().widgetId
-            widgets.delete(old)
-            editor.setWidgetId(-1)
+            widgets.delete(id)
+            editor.removeWidget(id)
         }
     }
 

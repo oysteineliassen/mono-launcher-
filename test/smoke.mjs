@@ -167,26 +167,42 @@ console.log(`Bokstavliste OK (${letters.map((n) => n.text).join('')})`);
 await home();
 console.log('Grupper OK');
 
-// 5. Widgetsiden
+// 5. Widgetsiden: legg til to widgeter, rediger og endre høyde.
 swipeRight();
-const pick = await need(/^Velg widget$/, 'Velg widget');
 shot('6-widget-tom');
-tap(pick);
-await sleep(1500);
-const list = nodes(dump()).filter((n) => n.text && !/^(Velg widget|Lukk)$/.test(n.text));
-console.log('Widgeter:', list.map((n) => n.text).join(' | '));
-if (!list.length) fail('ingen widgeter i listen');
-const choice = list.find((n) => /Clock|Klokke|Calendar|Kalender/i.test(n.text)) || list[0];
-tap(choice);
-await sleep(4000);
-let ui = nodes(dump());
-if (!ui.some((n) => n.text === 'Bytt widget')) {
-  // Widgeten åpnet et oppsettvindu – prøv å bekrefte eller gå tilbake.
-  shot('7-widget-oppsett');
-  sh('adb shell input keyevent KEYCODE_BACK');
+async function addWidget(re) {
+  tap(await need(/^Legg til widget$/, 'Legg til widget'));
   await sleep(1500);
+  const list = nodes(dump()).filter((n) => n.text && !/^(Velg widget|Lukk)$/.test(n.text));
+  if (!list.length) fail('ingen widgeter i listen');
+  const choice = list.find((n) => re.test(n.text)) || list[0];
+  console.log('Velger widget:', choice.text);
+  tap(choice);
+  await sleep(4000);
+  if (!nodes(dump()).some((n) => n.text === 'Rediger')) {
+    // Widgeten åpnet et oppsettvindu – gå tilbake (widgeten legges ikke til da).
+    shot('7-widget-oppsett');
+    sh('adb shell input keyevent KEYCODE_BACK');
+    await sleep(1500);
+  }
 }
+await addWidget(/Calendar – Calendar month view|Kalender/);
+await addWidget(/Clock – Digital|Klokke/);
+await need(/^Rediger$/, 'Rediger (minst én widget lagt til)');
 shot('7-widget');
+tap(await need(/^Rediger$/, 'Rediger'));
+await sleep(800);
+const removes = nodes(dump()).filter((n) => n.text === 'Fjern');
+console.log('Widgeter på siden:', removes.length);
+const handle = await need(/dra for høyde/, 'håndtak for høyde');
+sh(`adb shell input swipe ${handle.x} ${handle.y} ${handle.x} ${handle.y + 150} 600`);
+await sleep(800);
+const half = nodes(dump()).find((n) => n.text === 'Halv');
+if (half) tap(half);
+await sleep(800);
+shot('7b-widget-rediger');
+tap(await need(/^Ferdig$/, 'Ferdig'));
+assertAlive();
 console.log('Widgetside OK');
 
 // 6. Innstillinger

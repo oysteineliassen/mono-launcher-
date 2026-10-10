@@ -13,6 +13,18 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+/** En widget på widgetsiden: høyde i dp og om den tar halv bredde (to halve legges side om side). */
+data class WidgetSlot(val id: Int, val heightDp: Int, val half: Boolean)
+
+private fun parseWidgets(text: String?): List<WidgetSlot> =
+    text.orEmpty().split('\n').mapNotNull { line ->
+        val p = line.split(',')
+        val id = p.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+        WidgetSlot(id, p.getOrNull(1)?.toIntOrNull() ?: 300, p.getOrNull(2) == "1")
+    }
+
+private fun List<WidgetSlot>.encode() = joinToString("\n") { "${it.id},${it.heightDp},${if (it.half) 1 else 0}" }
+
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /** Alle innstillinger, lest fra DataStore. Apper identifiseres med [AppEntry.key], pakker med pakkenavn. */
@@ -29,7 +41,8 @@ data class AppSettings(
     /** Pakker der varsler dempes og samles i launcheren. */
     val mutedPackages: Set<String> = emptySet(),
     val pauseSeconds: Int = 10,
-    val widgetId: Int = -1,
+    /** Widgetene på widgetsiden, i rekkefølge. */
+    val widgets: List<WidgetSlot> = emptyList(),
     val use24h: Boolean = true,
     val showScreenTime: Boolean = true,
     val autoKeyboard: Boolean = true,
@@ -41,7 +54,9 @@ object SettingsKeys {
     val pausePackages = stringSetPreferencesKey("pause_packages")
     val mutedPackages = stringSetPreferencesKey("muted_packages")
     val pauseSeconds = intPreferencesKey("pause_seconds")
+    /** Gammel innstilling med bare én widget; flyttes over til [widgets] ved lesing. */
     val widgetId = intPreferencesKey("widget_id")
+    val widgets = stringPreferencesKey("widgets")
     val use24h = booleanPreferencesKey("use_24h")
     val showScreenTime = booleanPreferencesKey("show_screen_time")
     val autoKeyboard = booleanPreferencesKey("auto_keyboard")
@@ -76,7 +91,9 @@ fun Preferences.toSettings(): AppSettings {
         limits = limits,
         mutedPackages = this[SettingsKeys.mutedPackages] ?: emptySet(),
         pauseSeconds = this[SettingsKeys.pauseSeconds] ?: 10,
-        widgetId = this[SettingsKeys.widgetId] ?: -1,
+        widgets = this[SettingsKeys.widgets]?.let(::parseWidgets)
+            ?: this[SettingsKeys.widgetId]?.takeIf { it >= 0 }?.let { listOf(WidgetSlot(it, 360, false)) }
+            ?: emptyList(),
         use24h = this[SettingsKeys.use24h] ?: true,
         showScreenTime = this[SettingsKeys.showScreenTime] ?: true,
         autoKeyboard = this[SettingsKeys.autoKeyboard] ?: true,
@@ -162,7 +179,34 @@ class SettingsEditor(private val context: Context) {
 
     suspend fun setPauseSeconds(seconds: Int) = edit { it[SettingsKeys.pauseSeconds] = seconds.coerceIn(3, 120) }
 
-    suspend fun setWidgetId(id: Int) = edit { it[SettingsKeys.widgetId] = id }
+    private fun MutablePreferences.editWidgets(block: (MutableList<WidgetSlot>) -> Unit) {
+        val list = toSettings().widgets.toMutableList()
+        block(list)
+        this[SettingsKeys.widgets] = list.encode()
+        remove(SettingsKeys.widgetId)
+    }
+
+    suspend fun addWidget(slot: WidgetSlot) = edit { p -> p.editWidgets { list -> list.removeAll { it.id == slot.id }; list += slot } }
+
+    suspend fun removeWidget(id: Int) = edit { p -> p.editWidgets { list -> list.removeAll { it.id == id } } }
+
+    suspend fun updateWidget(id: Int, heightDp: Int? = null, half: Boolean? = null) = edit { p ->
+        p.editWidgets { list ->
+            val i = list.indexOfFirst { it.id == id }
+            if (i >= 0) {
+                val w = list[i]
+                list[i] = w.copy(heightDp = (heightDp ?: w.heightDp).coerceIn(60, 1200), half = half ?: w.half)
+            }
+        }
+    }
+
+    suspend fun moveWidget(id: Int, delta: Int) = edit { p ->
+        p.editWidgets { list ->
+            val i = list.indexOfFirst { it.id == id }
+            val j = i + delta
+            if (i >= 0 && j in list.indices) list[i] = list[j].also { list[j] = list[i] }
+        }
+    }
 
     suspend fun setUse24h(on: Boolean) = edit { it[SettingsKeys.use24h] = on }
 
