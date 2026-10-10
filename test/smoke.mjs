@@ -186,14 +186,16 @@ async function addWidget(re) {
     await sleep(1500);
   }
 }
-await addWidget(/Calendar – Calendar month view|Kalender/);
-await addWidget(/Clock – Digital|Klokke/);
+// Klokkewidgetene har ikke eget oppsettvindu, så begge skal havne på siden.
+await addWidget(/Clock – Digital/);
+await addWidget(/Clock – Analog/);
 await need(/^Rediger$/, 'Rediger (minst én widget lagt til)');
 shot('7-widget');
 tap(await need(/^Rediger$/, 'Rediger'));
 await sleep(800);
 const removes = nodes(dump()).filter((n) => n.text === 'Fjern');
 console.log('Widgeter på siden:', removes.length);
+if (removes.length < 2) fail('forventet to widgeter på siden, fant ' + removes.length);
 const handle = await need(/dra for høyde/, 'håndtak for høyde');
 sh(`adb shell input swipe ${handle.x} ${handle.y} ${handle.x} ${handle.y + 150} 600`);
 await sleep(800);
