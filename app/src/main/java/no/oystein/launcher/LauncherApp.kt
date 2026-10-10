@@ -80,6 +80,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     var allApps by remember { mutableStateOf(emptyList<AppEntry>()) }
     var usage by remember { mutableStateOf(emptyMap<String, Long>()) }
     var overlay by remember { mutableStateOf<Overlay?>(null) }
+    // Til dette tidspunktet holdes widgetsiden fast (se under).
+    var pinWidgetPageUntil by remember { mutableLongStateOf(0L) }
     var query by remember { mutableStateOf("") }
     var showHidden by remember { mutableStateOf(false) }
     // Åpne grupper, felles for hjemskjerm og appliste. Lukkes når man går hjem.
@@ -118,7 +120,6 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     // Mens widgetpanelet er åpent, og en stund etter at en widget er valgt (tillatelse og oppsett i
     // andre vinduer), skal siden bak stå stille på widgetsiden. Tastaturet i panelet endrer
     // vindusstørrelsen, og det kunne få sidebladingen til å hoppe til hjemskjermen.
-    var pinWidgetPageUntil by remember { mutableLongStateOf(0L) }
     val pinned = overlay == Overlay.WidgetPicker || android.os.SystemClock.elapsedRealtime() < pinWidgetPageUntil
     LaunchedEffect(pager.currentPage, pinned) {
         if (pinned && pager.currentPage != PAGE_WIDGET) {
