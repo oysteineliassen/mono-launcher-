@@ -342,48 +342,6 @@ fun NotificationsScreen(activity: MainActivity, items: List<MutedItem>, onClose:
 
 // ---------- Widget ----------
 
-@Composable
-fun WidgetPicker(controller: WidgetController, onPick: (AppWidgetProviderInfo) -> Unit, onClose: () -> Unit) {
-    val providers = remember { controller.providers().map { it to controller.label(it) } }
-    var query by remember { mutableStateOf("") }
-    // Treff på alle ordene i søket, i hvilken som helst rekkefølge (f.eks. «kal mån» → «Kalender – Måned»).
-    val shown = remember(providers, query) {
-        val words = query.trim().lowercase().split(' ').filter { it.isNotEmpty() }
-        if (words.isEmpty()) providers else providers.filter { (_, label) -> words.all { label.lowercase().contains(it) } }
-    }
-    FullScreen {
-        Title("Velg widget", onClose)
-        BasicTextField(
-            value = query,
-            onValueChange = { query = it },
-            singleLine = true,
-            textStyle = TextStyle(color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Light),
-            cursorBrush = SolidColor(Color.White),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onSearch = { shown.singleOrNull()?.let { onPick(it.first) } }),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("widgetsearch"),
-            decorationBox = { field ->
-                Box(Modifier.fillMaxWidth()) {
-                    if (query.isEmpty()) Text("Søk etter widget eller app", fontSize = 20.sp, color = Faint, fontWeight = FontWeight.Light)
-                    field()
-                }
-            },
-        )
-        HorizontalDivider(color = Faint)
-        LazyColumn(Modifier.fillMaxSize()) {
-            item { Spacer(Modifier.height(8.dp)) }
-            items(shown, key = { it.first.provider.flattenToString() + it.first.profile.hashCode() }) { (info, label) ->
-                MenuItem(label) { onPick(info) }
-            }
-            if (providers.isEmpty()) {
-                item { Text("Fant ingen widgeter.", color = Faint) }
-            } else if (shown.isEmpty()) {
-                item { Text("Ingen treff", fontSize = 18.sp, color = Faint, modifier = Modifier.padding(vertical = 12.dp)) }
-            }
-            item { Spacer(Modifier.height(48.dp)) }
-        }
-    }
-}
 
 fun LazyListScope.sectionHeader(text: String) {
     item(key = "section:$text") {

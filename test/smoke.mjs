@@ -245,21 +245,41 @@ shot('6-widget-tom');
 const savedWidgets = () => {
   try { return sh(`adb logcat -d -s Launcher:D`).split('\n').filter((l) => l.includes('finishWidget')).length; } catch { return 0; }
 };
-// Hold fingeren inne på widgetsiden og velg i menyen.
-async function widgetMenu(item) {
+// Som på iPhone: hold inne for å redigere; «+ Legg til» (eller «Legg til widget» på tom side) åpner panelet.
+async function enterEdit() {
   for (let i = 0; i < 3; i++) {
+    if (nodes(dump()).some((n) => n.text === 'Ferdig')) return;
     longPress({ x: W / 2 | 0, y: H * 0.55 | 0 });
-    const n = await waitText(item, 4000);
-    if (n) { tap(n); await sleep(800); return; }
-    await sleep(800); // ikke Tilbake her: det ville gått til hjemskjermen
+    if (await waitText(/^Ferdig$/, 4000)) return;
   }
-  fail(`fant ikke «${item}» i widgetmenyen. Synlig tekst: ` + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+  fail('kom ikke i redigering. Synlig tekst: ' + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+}
+async function openWidgetSheet() {
+  for (let i = 0; i < 3; i++) {
+    const ui = nodes(dump());
+    if (ui.some((n) => n.text === 'Velg widget')) return;
+    const add = ui.find((n) => /^(\+ Legg til|Legg til widget)$/.test(n.text));
+    if (add) tap(add); else longPress({ x: W / 2 | 0, y: H * 0.55 | 0 });
+    if (await waitText(/^Velg widget$/, 4000)) return;
+  }
+  fail('fikk ikke opp widgetpanelet. Synlig tekst: ' + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+}
+async function searchWidgets(query) {
+  const end = Date.now() + 10000;
+  let field = null;
+  while (!field && Date.now() < end) { field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText'); if (!field) await sleep(700); }
+  if (!field) fail('fant ikke søkefeltet i widgetpanelet');
+  tap(field);
+  await sleep(500);
+  sh(`adb shell input text ${query.replace(/ /g, '%s')}`);
+  await sleep(800);
 }
 // Legger til en widget. Svarer true når launcheren har lagret den.
-async function addWidget(re) {
+async function addWidget(re, query) {
   const before = savedWidgets();
-  await widgetMenu(/^Legg til widget$/);
-  const choice = await need(re, 'widgeten i listen');
+  await openWidgetSheet();
+  await searchWidgets(query);
+  const choice = await need(re, 'widgeten i panelet');
   console.log('Velger widget:', choice.text);
   tap(choice);
   const end = Date.now() + 20000;
@@ -288,7 +308,7 @@ async function addWidget(re) {
       await sleep(700);
       continue;
     }
-    const ours = texts.some((t) => /^(Legg til widget|Ingen widgeter|Widgeter)$/.test(t)) ||
+    const ours = texts.some((t) => /^(Legg til widget|Ingen widgeter|\+ Legg til|Ferdig)$/.test(t)) ||
       (ui.length > 0 && texts.length === 0); // widgetsiden med bare widgeter har ingen egne tekster
     if (texts.length && !ours) {
       // Widgetens eget oppsett: bekreft hvis det finnes en knapp for det, ellers tilbake.
@@ -306,31 +326,31 @@ async function addWidget(re) {
 }
 // Klokkewidgeten har eget oppsett (tester den veien); Chrome-widgetene har det ikke.
 let added = 0;
-for (const re of [/^Clock – Digital$/, /^Chrome – Chrome search$/, /^Chrome – Chrome Dino$/]) {
+for (const [re, q] of [[/^Clock – Digital$/, 'digital'], [/^Chrome – Chrome search$/, 'chrome search'], [/^Chrome – Chrome Dino$/, 'dino']]) {
   if (added >= 2) break;
-  if (await addWidget(re)) added++;
+  if (await addWidget(re, q)) added++;
   console.log('Widgeter lagt til:', added);
   await sleep(1000);
 }
 if (added < 2) fail('fikk ikke lagt til to widgeter');
 shot('7-widget');
-await widgetMenu(/^Rediger/);
+await enterEdit();
 await sleep(800);
-const removes = nodes(dump()).filter((n) => n.text === 'Fjern');
+const removes = nodes(dump()).filter((n) => n.desc === 'Fjern');
 console.log('Widgeter på siden:', removes.length);
 if (removes.length < 2) fail('forventet to widgeter på siden, fant ' + removes.length);
 // Gjør den første widgeten mindre (dra hjørnet), og flytt den andre ned under den.
 const handles = nodes(dump()).filter((n) => n.text === '◢');
 if (handles.length < 2) fail('fant ikke hjørnehåndtakene');
 const h0 = handles.reduce((a, b) => (b.y < a.y ? b : a));
-const topFjern = () => nodes(dump()).filter((n) => n.text === 'Fjern').reduce((a, b) => (b.y < a.y ? b : a));
-const xBefore = topFjern().x;
+const topHandle = () => nodes(dump()).filter((n) => n.text === '◢').reduce((a, b) => (b.y < a.y ? b : a));
+const xBefore = h0.x;
 sh(`adb shell input swipe ${h0.x} ${h0.y} ${h0.x - (W / 2 | 0)} ${h0.y} 800`);
 await sleep(1500);
 shot('7a-widget-mindre');
-const fjern = nodes(dump()).filter((n) => n.text === 'Fjern').sort((a, b) => b.y - a.y);
+const fjern = nodes(dump()).filter((n) => n.desc === 'Fjern').sort((a, b) => b.y - a.y);
 const lower = fjern[0];
-sh(`adb shell input swipe ${lower.x - 80} ${lower.y + 60} ${lower.x - 80} ${lower.y + 260} 900`);
+sh(`adb shell input swipe ${lower.x + 80} ${lower.y + 60} ${lower.x + 80} ${lower.y + 260} 900`);
 await sleep(1500);
 shot('7b-widget-rediger');
 tap(await need(/^Ferdig$/, 'Ferdig'));
@@ -338,25 +358,18 @@ tap(await need(/^Ferdig$/, 'Ferdig'));
 await home();
 swipeRight();
 await sleep(1000);
-await widgetMenu(/^Rediger/);
+await enterEdit();
 await sleep(1500);
-const xAfter = topFjern().x;
-console.log(`Øverste widget: «Fjern» x ${xBefore} → ${xAfter}`);
+const xAfter = topHandle().x;
+console.log(`Øverste widget: hjørnet x ${xBefore} → ${xAfter}`);
 if (xAfter > xBefore - W / 4) fail('ny størrelse ble ikke lagret');
 shot('7c-widget-lagret');
 tap(await need(/^Ferdig$/, 'Ferdig'));
 assertAlive();
-// Søk i widgetlisten.
-await widgetMenu(/^Legg til widget$/);
-await need(/^Velg widget$/, 'widgetlisten');
+// Søk i widgetpanelet.
+await openWidgetSheet();
 {
-  const end = Date.now() + 10000;
-  let field = null;
-  while (!field && Date.now() < end) { field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText'); if (!field) await sleep(700); }
-  if (!field) fail('fant ikke søkefeltet i widgetlisten');
-  tap(field);
-  await sleep(500);
-  sh('adb shell input text dino');
+  await searchWidgets('dino');
   await need(/^Chrome – Chrome Dino$/, 'søketreff «Dino»');
   const texts = nodes(dump()).map((n) => n.text);
   if (texts.some((t) => /^Clock – /.test(t))) fail('søket filtrerte ikke bort andre widgeter: ' + texts.filter(Boolean).join(' | '));

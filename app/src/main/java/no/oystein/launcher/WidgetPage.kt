@@ -1,5 +1,18 @@
 package no.oystein.launcher
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.appwidget.AppWidgetHostView
 import android.widget.FrameLayout
 import androidx.compose.animation.core.Animatable
@@ -15,7 +28,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -73,26 +85,18 @@ private val springSpec = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.S
 @Composable
 fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
     LaunchedEffect(widgets.isEmpty()) { if (widgets.isEmpty()) editing = false }
+    // Hjem-knappen avslutter redigeringen.
+    LaunchedEffect(Unit) { activity.homeEvents.collect { editing = false } }
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
-    val openMenu = {
+    // Som på iPhone: hold inne for å begynne å redigere (eller legge til, når siden er tom).
+    val startEditing = {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        menuOpen = true
-    }
-
-    if (menuOpen) {
-        TextDialog(onClose = { menuOpen = false }) {
-            Text("Widgeter", fontSize = 24.sp, fontWeight = FontWeight.Light, color = Color.White)
-            Spacer(Modifier.height(12.dp))
-            MenuItem("Legg til widget") { menuOpen = false; onAdd() }
-            if (widgets.isNotEmpty()) {
-                MenuItem(if (editing) "Ferdig med å redigere" else "Rediger (flytt og endre størrelse)") {
-                    menuOpen = false
-                    editing = !editing
-                }
-            }
+        if (widgets.isEmpty()) {
+            onAdd()
+        } else {
+            editing = true
         }
     }
 
@@ -108,7 +112,7 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .observeLongPress(onLongPress = openMenu),
+                    .observeLongPress(onLongPress = startEditing),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -119,6 +123,14 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
                 }
             }
         } else {
+            if (editing) {
+                // Øverst, som på iPhone: legg til til venstre, ferdig til høyre.
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PillButton("+ Legg til", onClick = onAdd)
+                    Spacer(Modifier.weight(1f))
+                    PillButton("Ferdig") { editing = false }
+                }
+            }
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp)) {
                 val cellW = with(density) { maxWidth.toPx() } / GRID_COLUMNS
                 val cellH = with(density) { GRID_CELL_HEIGHT_DP.dp.toPx() }
@@ -129,9 +141,9 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
                 Box(
                     Modifier
                         .fillMaxSize()
-                        // Hold inne hvor som helst (på en widget eller tom plass) for menyen. I
-                        // redigering er det av, så man kan holde og dra widgeter uten at menyen dukker opp.
-                        .then(if (editing) Modifier else Modifier.observeLongPress(onLongPress = openMenu))
+                        // Hold inne hvor som helst (på en widget eller tom plass) for å redigere. I
+                        // redigering er det av, så man kan holde og dra widgeter.
+                        .then(if (editing) Modifier else Modifier.observeLongPress(onLongPress = startEditing))
                         .verticalScroll(rememberScrollState())
                 ) {
                     Box(
@@ -146,13 +158,6 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
                             }
                         }
                     }
-                }
-            }
-            if (editing) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    TextAction("Legg til widget", onClick = onAdd)
-                    Spacer(Modifier.padding(horizontal = 12.dp))
-                    TextAction("Ferdig", color = Color.White) { editing = false }
                 }
             }
         }
@@ -217,11 +222,20 @@ private fun WidgetCell(
         activity.widgets.updateSize(v, s.first, s.second)
     }
 
+    // Widgetene vrikker forsiktig mens man redigerer (ikke den man holder i).
+    val angle = if (editing && !active) wiggleAngle(slot.id) else 0f
+
     Box(
         Modifier
             .offset { IntOffset(ax.value.roundToInt(), ay.value.roundToInt()) }
             .size(with(density) { aw.value.toDp() }, with(density) { ah.value.toDp() })
             .zIndex(if (active) 1f else 0f)
+            .graphicsLayer {
+                rotationZ = angle
+                val lift = if (active) 1.04f else 1f
+                scaleX = lift
+                scaleY = lift
+            }
             .padding(4.dp)
             .testTag("widget")
     ) {
@@ -246,8 +260,8 @@ private fun WidgetCell(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (active) 0.15f else 0.35f))
-                    .border(BorderStroke(1.dp, if (active) Color.White else Faint))
+                    .background(Color.Black.copy(alpha = 0.12f))
+                    .then(if (active) Modifier.border(BorderStroke(1.dp, Color.White), RoundedCornerShape(12.dp)) else Modifier)
                     .pointerInput(local, cellW, cellH) {
                         detectDragGestures(
                             onDragStart = { active = true },
@@ -266,18 +280,19 @@ private fun WidgetCell(
                         }
                     }
             )
-            Text(
-                "Fjern",
-                fontSize = 14.sp,
-                color = Color.White,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .background(Color.Black)
-                    .border(BorderStroke(1.dp, Faint))
+            // Rundt minus-merke oppe til venstre fjerner widgeten.
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF3A3A3A))
                     .clickable { activity.removeWidget(slot.id) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
+                    .semantics { contentDescription = "Fjern" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("−", fontSize = 20.sp, color = Color.White, modifier = Modifier.clearAndSetSemantics { })
+            }
             // Hjørnet nederst til høyre: dra for å endre størrelse.
             Box(
                 Modifier
@@ -338,4 +353,31 @@ fun Modifier.observeLongPress(onLongPress: () -> Unit): Modifier = pointerInput(
             } while (event.changes.any { it.pressed })
         }
     }
+}
+
+/** Liten, jevn vrikking. Litt ulikt tempo per widget, så de ikke beveger seg i takt. */
+@Composable
+private fun wiggleAngle(seed: Int): Float {
+    val transition = rememberInfiniteTransition(label = "vrikk")
+    val a by transition.animateFloat(
+        initialValue = -0.9f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(150 + (seed % 3) * 30, easing = LinearEasing), RepeatMode.Reverse),
+        label = "vinkel",
+    )
+    return a
+}
+
+@Composable
+fun PillButton(text: String, onClick: () -> Unit) {
+    Text(
+        text,
+        fontSize = 15.sp,
+        color = Color.White,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }

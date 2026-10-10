@@ -194,7 +194,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             items = muted,
             onClose = { overlay = null },
         )
-        Overlay.WidgetPicker -> WidgetPicker(
+        Overlay.WidgetPicker -> WidgetSheet(
             controller = activity.widgets,
             onPick = {
                 overlay = null
