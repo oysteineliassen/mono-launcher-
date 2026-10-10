@@ -47,7 +47,10 @@ import android.provider.AlarmClock
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import kotlin.math.abs
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -126,18 +129,17 @@ fun HomePage(
     }
     // Favoritter som ligger i en gruppe vises under gruppen; gruppene står øverst i alfabetisk rekkefølge.
     val (groups, singles) = remember(favorites, settings) { favorites.grouped(settings) }
+    val favoritesScroll = rememberScrollState()
+    val currentEditing by rememberUpdatedState(editing)
 
     Box(
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) { detectTapGestures(onLongPress = { onSettings() }) }
-            .pointerInput(Unit) {
-                var total = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragEnd = { if (total > 120f) expandNotifications(activity) },
-                ) { _, dy -> total += dy }
-            }
+            .observeSwipeDown(
+                enabled = { !currentEditing && favoritesScroll.value == 0 },
+                onSwipeDown = { expandNotifications(activity) },
+            )
             .testTag("home")
     ) {
         Column(
@@ -191,7 +193,7 @@ fun HomePage(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(favoritesScroll)
             ) {
                 if (favorites.isEmpty()) {
                     Text(
@@ -260,6 +262,37 @@ fun HomePage(
         }
     }
 }
+
+/**
+ * Sveip ned hvor som helst på hjemskjermen – også over favorittene og nederst ved snarveiene – trekker
+ * ned varselpanelet, som i Minimalist Phone. Berøringen observeres før appene under ser den, uten å tas
+ * over, så trykk, sidebytte og sortering virker som før. Holder man først inne (sortering), teller det ikke.
+ */
+private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () -> Unit): Modifier =
+    pointerInput(Unit) {
+        val threshold = 48.dp.toPx()
+        val timeout = viewConfiguration.longPressTimeoutMillis
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (!enabled()) return@awaitEachGesture
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.changes.size > 1) break
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                // Etter langt trykk er det sortering (eller innstillinger), ikke sveip.
+                if (change.uptimeMillis - down.uptimeMillis > timeout) break
+                val d = change.position - down.position
+                // Sidelengs betyr sidebytte; da gir vi oss.
+                if (abs(d.x) > threshold && abs(d.x) > abs(d.y)) break
+                if (d.y > threshold && d.y > abs(d.x) * 1.5f) {
+                    android.util.Log.d("Launcher", "sveip ned: varselpanel")
+                    onSwipeDown()
+                    break
+                }
+            }
+        }
+    }
 
 /** Trekker ned varselpanelet (sveip ned på hjemskjermen). */
 @SuppressLint("WrongConstant")

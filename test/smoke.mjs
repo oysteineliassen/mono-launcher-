@@ -285,6 +285,25 @@ console.log(sh(`adb logcat -d -s Launcher:D | grep sortering || true`));
 if (!(pos.Chrome < pos.Calendar && pos.Calendar < pos.Camera)) {
   fail('Chrome skulle havne øverst i ett sveip (forbi to apper): ' + JSON.stringify(pos));
 }
+// 4d. Sveip ned over favorittene og nederst (over snarveiene) trekker ned varselpanelet.
+const swipeDowns = () => {
+  try { return sh(`adb logcat -d -s Launcher:D`).split('\n').filter((l) => l.includes('sveip ned')).length; } catch { return 0; }
+};
+for (const [what, y] of [['over favorittene', pos.Calendar - 40], ['nederst', H * 0.78 | 0]]) {
+  const before = swipeDowns();
+  sh(`adb shell input swipe ${W / 2 | 0} ${y} ${W / 2 | 0} ${Math.min(H - 10, y + H * 0.15) | 0} 150`);
+  await sleep(1500);
+  const focus = (() => { try { return sh(`adb shell dumpsys window | grep -m1 mCurrentFocus`); } catch { return ''; } })();
+  console.log(`Sveip ned ${what}: ${focus}`);
+  shot(`5f-varselpanel-${what === 'nederst' ? 'nede' : 'favoritter'}`);
+  if (swipeDowns() <= before) fail(`sveip ned ${what} trakk ikke ned varselpanelet`);
+  if (!/NotificationShade|StatusBar/i.test(focus)) fail(`varselpanelet vises ikke etter sveip ned ${what}: ${focus}`);
+  sh('adb shell cmd statusbar collapse || adb shell input keyevent KEYCODE_BACK');
+  await sleep(1000);
+}
+await home();
+if (nodes(dump()).some((n) => n.desc === 'Valg for Chrome')) fail('sveip ned skal ikke starte sortering');
+console.log('Sveip ned OK');
 // Rydd opp via ⋯: hold inne (uten å dra) for sorteringsmodus, så ⋯ → Fjern fra hjemskjermen.
 longPress(await need(/^Calendar$/, 'Calendar'));
 await sleep(800);
