@@ -346,6 +346,24 @@ if (xAfter > xBefore - W / 4) fail('ny størrelse ble ikke lagret');
 shot('7c-widget-lagret');
 tap(await need(/^Ferdig$/, 'Ferdig'));
 assertAlive();
+// Søk i widgetlisten.
+await widgetMenu(/^Legg til widget$/);
+await need(/^Velg widget$/, 'widgetlisten');
+{
+  const end = Date.now() + 10000;
+  let field = null;
+  while (!field && Date.now() < end) { field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText'); if (!field) await sleep(700); }
+  if (!field) fail('fant ikke søkefeltet i widgetlisten');
+  tap(field);
+  await sleep(500);
+  sh('adb shell input text dino');
+  await need(/^Chrome – Chrome Dino$/, 'søketreff «Dino»');
+  const texts = nodes(dump()).map((n) => n.text);
+  if (texts.some((t) => /^Clock – /.test(t))) fail('søket filtrerte ikke bort andre widgeter: ' + texts.filter(Boolean).join(' | '));
+  shot('7d-widget-sok');
+  tap(await need(/^Lukk$/, 'Lukk'));
+  await sleep(800);
+}
 console.log('Launcher-logg:\n' + sh(`adb logcat -d -s Launcher:D`));
 console.log('Widgetside OK');
 
