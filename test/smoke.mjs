@@ -82,6 +82,8 @@ sh('adb shell input keyevent KEYCODE_WAKEUP');
 sh('adb shell wm dismiss-keyguard || true');
 await home();
 
+const QUICK = process.env.QUICK === '1';
+
 // 1. Hjemskjerm
 await need(/^\d{1,2}:\d{2}$/, 'klokke', 30000);
 await need(/(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag) \d+\./, 'dato');
@@ -104,6 +106,18 @@ sh('adb shell input text sett');
 const settingsApp = await need(/^Settings$/, 'søketreff «Settings»');
 shot('3-sok');
 console.log('Appliste og søk OK');
+
+if (QUICK) {
+  // Rask sjekk av det krympede release-bygget: hjem, appliste og widgetside uten krasj.
+  await home();
+  swipeRight();
+  await need(/^(Legg til widget|Rediger)$/, 'widgetsiden');
+  shot('release-widget');
+  await home();
+  assertAlive();
+  console.log('Release-bygget OK');
+  process.exit(0);
+}
 
 // 3. Appmeny: legg Settings til på hjemskjermen og slå på pauseskjerm
 longPress(await need(/^Settings$/, 'Settings'));
