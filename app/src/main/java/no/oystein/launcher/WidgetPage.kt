@@ -10,6 +10,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -67,8 +73,28 @@ private val springSpec = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.S
 @Composable
 fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> Unit) {
     var editing by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     LaunchedEffect(widgets.isEmpty()) { if (widgets.isEmpty()) editing = false }
     val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    val openMenu = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        menuOpen = true
+    }
+
+    if (menuOpen) {
+        TextDialog(onClose = { menuOpen = false }) {
+            Text("Widgeter", fontSize = 24.sp, fontWeight = FontWeight.Light, color = Color.White)
+            Spacer(Modifier.height(12.dp))
+            MenuItem("Legg til widget") { menuOpen = false; onAdd() }
+            if (widgets.isNotEmpty()) {
+                MenuItem(if (editing) "Ferdig med å redigere" else "Rediger (flytt og endre størrelse)") {
+                    menuOpen = false
+                    editing = !editing
+                }
+            }
+        }
+    }
 
     Column(
         Modifier
@@ -78,9 +104,16 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
             .testTag("widgetpage")
     ) {
         if (widgets.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .observeLongPress(onLongPress = openMenu),
+                contentAlignment = Alignment.Center,
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Ingen widgeter", fontSize = 20.sp, color = Dim)
+                    Text("Hold fingeren inne for å legge til", fontSize = 14.sp, color = Faint)
                     Spacer(Modifier.height(8.dp))
                     TextAction("Legg til widget", color = Color.White, size = 20, onClick = onAdd)
                 }
@@ -96,6 +129,9 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
                 Box(
                     Modifier
                         .fillMaxSize()
+                        // Hold inne hvor som helst (på en widget eller tom plass) for menyen. I
+                        // redigering er det av, så man kan holde og dra widgeter uten at menyen dukker opp.
+                        .then(if (editing) Modifier else Modifier.observeLongPress(onLongPress = openMenu))
                         .verticalScroll(rememberScrollState())
                 ) {
                     Box(
@@ -112,11 +148,11 @@ fun WidgetPage(activity: MainActivity, widgets: List<WidgetSlot>, onAdd: () -> U
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                TextAction("Legg til widget", onClick = onAdd)
-                Spacer(Modifier.padding(horizontal = 12.dp))
-                TextAction(if (editing) "Ferdig" else "Rediger", color = if (editing) Color.White else Dim) {
-                    editing = !editing
+            if (editing) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    TextAction("Legg til widget", onClick = onAdd)
+                    Spacer(Modifier.padding(horizontal = 12.dp))
+                    TextAction("Ferdig", color = Color.White) { editing = false }
                 }
             }
         }
@@ -269,6 +305,37 @@ private fun WidgetCell(
             ) {
                 Text("◢", fontSize = 22.sp, color = Color.White, modifier = Modifier.padding(2.dp))
             }
+        }
+    }
+}
+
+/**
+ * Oppdager at fingeren holdes i ro, uten å ta over berøringen: widgetene og sidebyttet virker som
+ * vanlig. Først når man har holdt lenge nok, tas resten av berøringen, så widgeten under får «avbrutt».
+ */
+fun Modifier.observeLongPress(onLongPress: () -> Unit): Modifier = pointerInput(Unit) {
+    val timeout = viewConfiguration.longPressTimeoutMillis
+    val slop = viewConfiguration.touchSlop
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        val released = withTimeoutOrNull(timeout) {
+            while (true) {
+                val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                if (change == null || !change.pressed || change.isConsumed ||
+                    (change.position - down.position).getDistance() > slop
+                ) {
+                    return@withTimeoutOrNull true
+                }
+            }
+            @Suppress("UNREACHABLE_CODE")
+            true
+        }
+        if (released == null) {
+            onLongPress()
+            do {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                event.changes.forEach { it.consume() }
+            } while (event.changes.any { it.pressed })
         }
     }
 }

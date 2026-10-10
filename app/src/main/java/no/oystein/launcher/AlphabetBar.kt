@@ -7,6 +7,8 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +47,7 @@ fun AlphabetBar(letters: List<Char>, onLetter: (Char) -> Unit, modifier: Modifie
 
     Column(
         modifier
-            .width(32.dp)
+            .width(48.dp)
             .onSizeChanged { heightPx = maxOf(1, it.height) }
             .pointerInput(letters) {
                 fun select(y: Float) {
@@ -93,13 +95,15 @@ fun AlphabetBar(letters: List<Char>, onLetter: (Char) -> Unit, modifier: Modifie
                 label = "bokstavforskyvning",
             )
             val emphasis = ((scale - 1f) / 1.6f).coerceIn(0f, 1f)
-            Box(Modifier.weight(1f, fill = false), contentAlignment = Alignment.Center) {
+            // Hver bokstav får like stor del av hele høyden, nøyaktig som berøringen regnes ut.
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                 Text(
                     c.toString(),
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (distance == 0) FontWeight.Normal else FontWeight.Light,
                     color = lerp(Dim, Color.White, emphasis),
                     modifier = Modifier
+                        .padding(end = 10.dp)
                         .graphicsLayer {
                             scaleX = scale
                             scaleY = scale

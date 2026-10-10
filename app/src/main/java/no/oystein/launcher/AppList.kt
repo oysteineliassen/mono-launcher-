@@ -125,10 +125,11 @@ fun AppListPage(
             .fillMaxSize()
             .systemBarsPadding()
             .imePadding()
-            .padding(horizontal = 32.dp)
+            // Ingen høyremarg her: bokstavlisten skal gå helt ut mot skjermkanten.
+            .padding(start = 32.dp)
     ) {
         Spacer(Modifier.height(32.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(end = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             BasicTextField(
                 value = query,
                 onValueChange = onQuery,
@@ -162,9 +163,17 @@ fun AppListPage(
             )
         }
         Spacer(Modifier.height(8.dp))
-        HorizontalDivider(color = Faint)
-        Row(Modifier.fillMaxSize()) {
-            LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxHeight().testTag("applist")) {
+        HorizontalDivider(Modifier.padding(end = 32.dp), color = Faint)
+        Row(Modifier.fillMaxSize().padding(end = 4.dp)) {
+            val showLetters = query.isBlank() && letterIndex.size > 1
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(end = if (showLetters) 0.dp else 28.dp)
+                    .testTag("applist"),
+            ) {
                 item { Spacer(Modifier.height(8.dp)) }
                 for (group in groups) {
                     val open = query.isNotBlank() || group.name in expanded
@@ -206,11 +215,11 @@ fun AppListPage(
                     Spacer(Modifier.height(48.dp))
                 }
             }
-            if (query.isBlank() && letterIndex.size > 1) {
+            if (showLetters) {
                 AlphabetBar(
                     letters = letterIndex.keys.toList(),
                     onLetter = { c -> letterIndex[c]?.let { scope.launch { listState.scrollToItem(it) } } },
-                    modifier = Modifier.fillMaxHeight().padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxHeight().padding(vertical = 4.dp),
                 )
             }
         }

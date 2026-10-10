@@ -199,10 +199,24 @@ console.log('Grupper OK');
 // 5. Widgetsiden: legg til to widgeter, rediger og endre høyde.
 swipeRight();
 shot('6-widget-tom');
-// Legger til en widget. Svarer true når den står på siden.
+// Antall widgeter launcheren har lagret (fra loggen).
+const savedWidgets = () => {
+  try { return sh(`adb logcat -d -s Launcher:D`).split('\n').filter((l) => l.includes('finishWidget')).length; } catch { return 0; }
+};
+// Hold fingeren inne på widgetsiden og velg i menyen.
+async function widgetMenu(item) {
+  for (let i = 0; i < 3; i++) {
+    longPress({ x: W / 2 | 0, y: H * 0.55 | 0 });
+    const n = await waitText(item, 4000);
+    if (n) { tap(n); await sleep(800); return; }
+    await sleep(800); // ikke Tilbake her: det ville gått til hjemskjermen
+  }
+  fail(`fant ikke «${item}» i widgetmenyen. Synlig tekst: ` + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+}
+// Legger til en widget. Svarer true når launcheren har lagret den.
 async function addWidget(re) {
-  const before = nodes(dump()).filter((n) => n.text === 'Fjern').length;
-  tap(await need(/^Legg til widget$/, 'Legg til widget'));
+  const before = savedWidgets();
+  await widgetMenu(/^Legg til widget$/);
   const choice = await need(re, 'widgeten i listen');
   console.log('Velger widget:', choice.text);
   tap(choice);
@@ -211,7 +225,7 @@ async function addWidget(re) {
   while (Date.now() < end) {
     const ui = nodes(dump());
     const texts = ui.map((n) => n.text).filter(Boolean);
-    if (texts.includes('Rediger') || texts.includes('Ferdig')) return true;
+    if (savedWidgets() > before) { await sleep(1000); return true; }
     if (texts.includes('Ingen widgeter') && Date.now() > end - 12000) return false;
     // Androids dialog «Tillat at Launcher oppretter moduler …»: kryss av for «alltid» og trykk Opprett.
     const create = ui.find((n) => /^(Create|CREATE|Opprett|OPPRETT)$/.test(n.text));
@@ -232,7 +246,9 @@ async function addWidget(re) {
       await sleep(700);
       continue;
     }
-    if (texts.length && !texts.some((t) => /^(Legg til widget|Ingen widgeter)$/.test(t))) {
+    const ours = texts.some((t) => /^(Legg til widget|Ingen widgeter|Widgeter)$/.test(t)) ||
+      (ui.length > 0 && texts.length === 0); // widgetsiden med bare widgeter har ingen egne tekster
+    if (texts.length && !ours) {
       // Widgetens eget oppsett: bekreft hvis det finnes en knapp for det, ellers tilbake.
       console.log('Oppsettskjerm for widgeten:', texts.join(' | '));
       shot('7-widget-oppsett');
@@ -244,7 +260,7 @@ async function addWidget(re) {
     await sleep(700);
   }
   console.log('Synlig tekst:', nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
-  return nodes(dump()).filter((n) => n.text === 'Fjern').length > before;
+  return savedWidgets() > before;
 }
 // Klokkewidgeten har eget oppsett (tester den veien); Chrome-widgetene har det ikke.
 let added = 0;
@@ -252,12 +268,11 @@ for (const re of [/^Clock – Digital$/, /^Chrome – Chrome search$/, /^Chrome 
   if (added >= 2) break;
   if (await addWidget(re)) added++;
   console.log('Widgeter lagt til:', added);
-  if (added < 2) await need(/^Legg til widget$/, 'widgetsiden etter forsøk');
+  await sleep(1000);
 }
 if (added < 2) fail('fikk ikke lagt til to widgeter');
-await need(/^Rediger$/, 'Rediger (minst én widget lagt til)');
 shot('7-widget');
-tap(await need(/^Rediger$/, 'Rediger'));
+await widgetMenu(/^Rediger/);
 await sleep(800);
 const removes = nodes(dump()).filter((n) => n.text === 'Fjern');
 console.log('Widgeter på siden:', removes.length);
@@ -280,7 +295,8 @@ tap(await need(/^Ferdig$/, 'Ferdig'));
 // Plasseringen skal være lagret: gå hjem og tilbake, og sjekk at den første widgeten er smalere.
 await home();
 swipeRight();
-tap(await need(/^Rediger$/, 'Rediger'));
+await sleep(1000);
+await widgetMenu(/^Rediger/);
 await sleep(1500);
 const xAfter = topFjern().x;
 console.log(`Øverste widget: «Fjern» x ${xBefore} → ${xAfter}`);
