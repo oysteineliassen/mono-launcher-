@@ -94,7 +94,10 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         runCatching { widgets.host.startListening() }
         _resumeCount.value++
-        if (!stoppedForInternal && !recreated) _homeEvents.tryEmit(Unit)
+        if (!stoppedForInternal && !recreated) {
+            Log.d(TAG, "home: onStart")
+            _homeEvents.tryEmit(Unit)
+        }
         stoppedForInternal = false
         recreated = false
     }
@@ -115,6 +118,7 @@ class MainActivity : ComponentActivity() {
         if (intent.action == Intent.ACTION_MAIN) {
             internalLaunchAt = 0L
             stoppedForInternal = false
+            Log.d(TAG, "home: onNewIntent")
             _homeEvents.tryEmit(Unit)
         }
     }

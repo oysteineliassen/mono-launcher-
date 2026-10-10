@@ -318,7 +318,20 @@ async function addWidget(re, query) {
       console.log('Oppsettskjerm for widgeten:', texts.join(' | '));
       shot('7-widget-oppsett');
       const ok = ui.find((n) => /^(Done|DONE|Save|SAVE|OK|Ferdig|Lagre|Add|Legg til)$/.test(n.text));
-      if (ok) tap(ok); else sh('adb shell input keyevent KEYCODE_BACK');
+      if (ok) {
+        tap(ok);
+      } else {
+        // Trykk Tilbake bare hvis oppsettet fortsatt er åpent; ellers havner det hos launcheren.
+        await sleep(1000);
+        const still = nodes(dump()).map((n) => n.text).filter(Boolean);
+        if (still.length && !still.some((t) => /^(Legg til widget|Ingen widgeter|\+ Legg til|Ferdig)$/.test(t)) &&
+            !still.some((t) => /^(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag) \d+\./.test(t))) {
+          console.log('Lukker widgetens oppsett med Tilbake');
+          sh('adb shell input keyevent KEYCODE_BACK');
+        } else {
+          console.log('Oppsettet lukket seg selv');
+        }
+      }
       await sleep(2000);
       continue;
     }

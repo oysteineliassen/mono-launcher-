@@ -128,7 +128,10 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     BackHandler {
         when {
             overlay != null -> overlay = null
-            pager.currentPage != PAGE_HOME -> scope.launch { pager.animateScrollToPage(PAGE_HOME) }
+            pager.currentPage != PAGE_HOME -> {
+                android.util.Log.d("Launcher", "home: tilbake-knapp")
+                scope.launch { pager.animateScrollToPage(PAGE_HOME) }
+            }
         }
     }
 
