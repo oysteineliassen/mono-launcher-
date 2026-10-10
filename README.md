@@ -9,7 +9,7 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 |---|---|
 | – | **Hjemskjerm**: klokke, dato, skjermtid i dag, antall dempede varsler og favorittene dine |
 | Til venstre | **Appliste** med søk. Enter/«Gå» åpner første treff. Dra fingeren langs bokstavene til høyre for å hoppe til en forbokstav. «Innstillinger» oppe til høyre |
-| Til høyre | **Widgeter**: så mange du vil. «Legg til widget» viser alle widgeter som tekst. «Rediger» lar deg flytte (↑ ↓), velge hel/halv bredde (to halve står side om side), fjerne, og dra i håndtaket under widgeten for å endre høyden |
+| Til høyre | **Widgeter** i et rutenett med 4 kolonner. «Legg til widget» viser alle widgeter som tekst. I «Rediger» drar du en widget for å flytte den og hjørnet ◢ for å endre størrelse; begge fester seg til rutene, og widgeter kan ikke overlappe |
 
 - **Hold inne på en app** (i listen eller på hjemskjermen): legg til/fjern på hjemskjermen, endre navn, skjul,
   pauseskjerm, daglig grense, demp varsler, appinfo, avinstaller.

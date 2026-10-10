@@ -39,11 +39,14 @@ class WidgetController(context: Context) {
         host.appWidgetIds.filter { it !in keep }.forEach { host.deleteAppWidgetId(it) }
     }
 
-    /** Startstørrelse for en ny widget: det widgeten selv ber om, men minst 160 dp. */
-    fun defaultHeightDp(info: AppWidgetProviderInfo?): Int {
+    /** Startstørrelse i ruter for en ny widget: det widgeten selv ber om, men minst 2 × 2. */
+    fun defaultCells(info: AppWidgetProviderInfo?, cellWidthDp: Float, cellHeightDp: Float): Pair<Int, Int> {
         val density = appContext.resources.displayMetrics.density
-        val wanted = info?.minHeight?.let { (it / density).toInt() } ?: 0
-        return wanted.coerceIn(160, 600)
+        val wDp = (info?.minWidth ?: 0) / density
+        val hDp = (info?.minHeight ?: 0) / density
+        val w = kotlin.math.ceil(wDp / cellWidthDp).toInt().coerceIn(2, GRID_COLUMNS)
+        val h = kotlin.math.ceil(hDp / cellHeightDp).toInt().coerceIn(2, 6)
+        return w to h
     }
 
     fun createView(context: Context, id: Int): AppWidgetHostView? {

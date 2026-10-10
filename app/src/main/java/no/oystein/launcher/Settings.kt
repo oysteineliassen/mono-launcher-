@@ -14,16 +14,50 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** En widget på widgetsiden: høyde i dp og om den tar halv bredde (to halve legges side om side). */
-data class WidgetSlot(val id: Int, val heightDp: Int, val half: Boolean)
+/** Antall kolonner i widgetrutenettet. */
+const val GRID_COLUMNS = 4
 
-private fun parseWidgets(text: String?): List<WidgetSlot> =
-    text.orEmpty().split('\n').mapNotNull { line ->
-        val p = line.split(',')
-        val id = p.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
-        WidgetSlot(id, p.getOrNull(1)?.toIntOrNull() ?: 300, p.getOrNull(2) == "1")
+/** En widget i rutenettet: øverste venstre rute ([x], [y]) og størrelse i ruter ([w] × [h]). */
+data class WidgetSlot(val id: Int, val x: Int, val y: Int, val w: Int, val h: Int) {
+    fun overlaps(o: WidgetSlot) = x < o.x + o.w && o.x < x + w && y < o.y + o.h && o.y < y + h
+}
+
+/** Ingen overlapp med de andre widgetene og innenfor kolonnene. */
+fun List<WidgetSlot>.fits(slot: WidgetSlot): Boolean =
+    slot.x >= 0 && slot.y >= 0 && slot.w >= 1 && slot.h >= 1 && slot.x + slot.w <= GRID_COLUMNS &&
+        none { it.id != slot.id && it.overlaps(slot) }
+
+/** Første ledige plass (ovenfra, fra venstre) for en widget på [w] × [h] ruter. */
+fun List<WidgetSlot>.firstFree(id: Int, w: Int, h: Int): WidgetSlot {
+    val ww = w.coerceIn(1, GRID_COLUMNS)
+    var y = 0
+    while (true) {
+        for (x in 0..GRID_COLUMNS - ww) {
+            val s = WidgetSlot(id, x, y, ww, h)
+            if (fits(s)) return s
+        }
+        y++
     }
+}
 
-private fun List<WidgetSlot>.encode() = joinToString("\n") { "${it.id},${it.heightDp},${if (it.half) 1 else 0}" }
+private fun parseWidgets(text: String?): List<WidgetSlot> {
+    val out = mutableListOf<WidgetSlot>()
+    for (line in text.orEmpty().split('\n')) {
+        val p = line.split(',').map { it.toIntOrNull() }
+        val id = p.getOrNull(0) ?: continue
+        out += if (p.size >= 5) {
+            WidgetSlot(id, p[1] ?: 0, p[2] ?: 0, p[3] ?: GRID_COLUMNS, p[4] ?: 2)
+        } else {
+            // Eldre format (id,høyde i dp,halv): legg dem etter hverandre i rutenettet.
+            val h = ((p.getOrNull(1) ?: 300) / 90).coerceIn(1, 12)
+            val w = if (p.getOrNull(2) == 1) GRID_COLUMNS / 2 else GRID_COLUMNS
+            out.firstFree(id, w, h)
+        }
+    }
+    return out
+}
+
+private fun List<WidgetSlot>.encode() = joinToString("\n") { "${it.id},${it.x},${it.y},${it.w},${it.h}" }
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -92,7 +126,7 @@ fun Preferences.toSettings(): AppSettings {
         mutedPackages = this[SettingsKeys.mutedPackages] ?: emptySet(),
         pauseSeconds = this[SettingsKeys.pauseSeconds] ?: 10,
         widgets = this[SettingsKeys.widgets]?.let(::parseWidgets)
-            ?: this[SettingsKeys.widgetId]?.takeIf { it >= 0 }?.let { listOf(WidgetSlot(it, 360, false)) }
+            ?: this[SettingsKeys.widgetId]?.takeIf { it >= 0 }?.let { listOf(WidgetSlot(it, 0, 0, GRID_COLUMNS, 4)) }
             ?: emptyList(),
         use24h = this[SettingsKeys.use24h] ?: true,
         showScreenTime = this[SettingsKeys.showScreenTime] ?: true,
@@ -186,25 +220,21 @@ class SettingsEditor(private val context: Context) {
         remove(SettingsKeys.widgetId)
     }
 
-    suspend fun addWidget(slot: WidgetSlot) = edit { p -> p.editWidgets { list -> list.removeAll { it.id == slot.id }; list += slot } }
-
-    suspend fun removeWidget(id: Int) = edit { p -> p.editWidgets { list -> list.removeAll { it.id == id } } }
-
-    suspend fun updateWidget(id: Int, heightDp: Int? = null, half: Boolean? = null) = edit { p ->
+    /** Legger widgeten på første ledige plass i rutenettet. */
+    suspend fun addWidget(id: Int, w: Int, h: Int) = edit { p ->
         p.editWidgets { list ->
-            val i = list.indexOfFirst { it.id == id }
-            if (i >= 0) {
-                val w = list[i]
-                list[i] = w.copy(heightDp = (heightDp ?: w.heightDp).coerceIn(60, 1200), half = half ?: w.half)
-            }
+            list.removeAll { it.id == id }
+            list += list.firstFree(id, w, h)
         }
     }
 
-    suspend fun moveWidget(id: Int, delta: Int) = edit { p ->
+    suspend fun removeWidget(id: Int) = edit { p -> p.editWidgets { list -> list.removeAll { it.id == id } } }
+
+    /** Flytter eller endrer størrelse; ignoreres hvis den nye plassen overlapper en annen widget. */
+    suspend fun placeWidget(slot: WidgetSlot) = edit { p ->
         p.editWidgets { list ->
-            val i = list.indexOfFirst { it.id == id }
-            val j = i + delta
-            if (i >= 0 && j in list.indices) list[i] = list[j].also { list[j] = list[i] }
+            val i = list.indexOfFirst { it.id == slot.id }
+            if (i >= 0 && list.fits(slot)) list[i] = slot
         }
     }
 

@@ -159,8 +159,10 @@ class MainActivity : ComponentActivity() {
     private fun finishWidget(id: Int) {
         pendingWidgetId = -1
         val info = widgets.info(id)
+        val cellW = resources.configuration.screenWidthDp / GRID_COLUMNS.toFloat()
+        val (w, h) = widgets.defaultCells(info, cellW, GRID_CELL_HEIGHT_DP)
         lifecycleScope.launch {
-            editor.addWidget(WidgetSlot(id, widgets.defaultHeightDp(info), half = false))
+            editor.addWidget(id, w, h)
             widgets.cleanup(keep = settingsFlow().first().widgets.map { it.id }.toSet())
         }
     }
