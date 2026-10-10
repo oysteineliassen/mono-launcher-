@@ -187,6 +187,9 @@ class SettingsEditor(private val context: Context) {
         it[SettingsKeys.favorites] = (if (on) list + key else list).joinToString("\n")
     }
 
+    /** Lagrer favorittene i ny rekkefølge (fra sortering på hjemskjermen). */
+    suspend fun setFavorites(keys: List<String>) = edit { it[SettingsKeys.favorites] = keys.joinToString("\n") }
+
     suspend fun moveFavorite(key: String, delta: Int) = edit {
         val list = it.favoriteList().toMutableList()
         val i = list.indexOf(key)

@@ -1,5 +1,24 @@
 package no.oystein.launcher
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.zIndex
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import android.provider.MediaStore
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -76,6 +95,8 @@ fun HomePage(
     onMenu: (AppEntry) -> Unit,
     onSettings: () -> Unit,
     onNotifications: () -> Unit,
+    editing: Boolean,
+    onEditingChange: (Boolean) -> Unit,
 ) {
     val now = rememberNow()
     val timeFormat = remember(settings.use24h) {
@@ -84,6 +105,15 @@ fun HomePage(
     val dateFormat = remember { DateTimeFormatter.ofPattern("EEEE d. MMMM", norsk) }
     val byKey = remember(apps) { apps.associateBy { it.key } }
     val favorites = settings.favorites.mapNotNull { byKey[it] }
+
+    // Ny rekkefølge for én del (enkeltappene eller én gruppe): appene i delen bytter plass seg
+    // imellom, mens resten av favorittlisten står urørt.
+    fun saveOrder(section: List<String>) {
+        val inSection = section.toSet()
+        val next = section.iterator()
+        val newList = settings.favorites.map { k -> if (k in inSection && next.hasNext()) next.next() else k }
+        if (newList != settings.favorites) activity.lifecycleScope.launch { activity.editor.setFavorites(newList) }
+    }
     // Favoritter som ligger i en gruppe vises under gruppen; gruppene står øverst i alfabetisk rekkefølge.
     val (groups, singles) = remember(favorites, settings) { favorites.grouped(settings) }
 
@@ -162,24 +192,52 @@ fun HomePage(
                 }
                 for (group in groups) {
                     val open = group.name in expanded
-                    GroupHeader(
-                        group = group,
-                        expanded = open,
-                        fontSize = 28.sp,
-                        verticalPadding = 10,
-                        onToggle = { onToggleGroup(group.name) },
-                        onMenu = { onGroupMenu(group.name) },
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            GroupHeader(
+                                group = group,
+                                expanded = open,
+                                fontSize = 28.sp,
+                                verticalPadding = 10,
+                                onToggle = { onToggleGroup(group.name) },
+                                onMenu = { onGroupMenu(group.name) },
+                            )
+                        }
+                        if (editing) MoreButton("Valg for ${group.name}") { onGroupMenu(group.name) }
+                    }
                     if (open) {
-                        for (app in group.apps) FavoriteRow(app, settings, indent = true, onOpen, onMenu)
+                        ReorderableFavorites(
+                            apps = group.apps,
+                            settings = settings,
+                            indent = true,
+                            editing = editing,
+                            onEditingChange = onEditingChange,
+                            onOpen = onOpen,
+                            onMenu = onMenu,
+                            onReorder = ::saveOrder,
+                        )
                     }
                 }
-                for (app in singles) FavoriteRow(app, settings, indent = false, onOpen, onMenu)
+                ReorderableFavorites(
+                    apps = singles,
+                    settings = settings,
+                    indent = false,
+                    editing = editing,
+                    onEditingChange = onEditingChange,
+                    onOpen = onOpen,
+                    onMenu = onMenu,
+                    onReorder = ::saveOrder,
+                )
             }
             Spacer(Modifier.weight(1f))
             // Snarveiene nederst, fordelt over bredden (rekkefølge og synlighet velges i innstillingene).
             val shortcuts = settings.shortcuts.filter { it.visible }
-            if (shortcuts.isNotEmpty()) {
+            if (editing) {
+                // Sorteringsmodus: «Ferdig» i stedet for snarveiene (Tilbake og Hjem låser også).
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center) {
+                    PillButton("Ferdig") { onEditingChange(false) }
+                }
+            } else if (shortcuts.isNotEmpty()) {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = if (shortcuts.size == 1) Arrangement.Center else Arrangement.SpaceBetween,
@@ -202,27 +260,146 @@ private fun expandNotifications(activity: MainActivity) {
     }
 }
 
+/**
+ * Favorittene i én del, sorterbare: hold inne på en app (sorteringsmodus slås på) og dra opp eller
+ * ned uten å slippe. Appen man holder i uthevs, de andre dempes litt. Rekkefølgen lagres ved slipp.
+ */
+@Composable
+private fun ReorderableFavorites(
+    apps: List<AppEntry>,
+    settings: AppSettings,
+    indent: Boolean,
+    editing: Boolean,
+    onEditingChange: (Boolean) -> Unit,
+    onOpen: (AppEntry) -> Unit,
+    onMenu: (AppEntry) -> Unit,
+    onReorder: (List<String>) -> Unit,
+) {
+    val keys = apps.map { it.key }
+    var order by remember(keys) { mutableStateOf(keys) }
+    val byKey = remember(apps) { apps.associateBy { it.key } }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    val heights = remember { mutableStateMapOf<String, Int>() }
+    val haptic = LocalHapticFeedback.current
+    val currentEditing by rememberUpdatedState(editing)
+
+    Column(Modifier.fillMaxWidth()) {
+        for (k in order) {
+            val app = byKey[k] ?: continue
+            key(k) {
+                val isDragging = dragging == k
+                val scale by animateFloatAsState(if (isDragging) 1.06f else 1f, label = "løft")
+                FavoriteRow(
+                    app = app,
+                    settings = settings,
+                    indent = indent,
+                    editing = editing,
+                    highlighted = isDragging,
+                    dimmed = dragging != null && !isDragging,
+                    onOpen = { if (!currentEditing) onOpen(app) },
+                    onMenu = { onMenu(app) },
+                    modifier = Modifier
+                        .onSizeChanged { heights[k] = it.height }
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .graphicsLayer {
+                            translationY = if (isDragging) offset else 0f
+                            scaleX = scale
+                            scaleY = scale
+                            transformOrigin = TransformOrigin(0f, 0.5f)
+                        }
+                        .pointerInput(k) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onEditingChange(true)
+                                    dragging = k
+                                    offset = 0f
+                                },
+                                onDragEnd = {
+                                    dragging = null
+                                    offset = 0f
+                                    onReorder(order)
+                                },
+                                onDragCancel = {
+                                    dragging = null
+                                    offset = 0f
+                                },
+                            ) { change, amount ->
+                                change.consume()
+                                offset += amount.y
+                                // Bytt plass med naboen når man har dratt forbi halvparten av den.
+                                val i = order.indexOf(k)
+                                if (offset > 0 && i < order.lastIndex) {
+                                    val h = heights[order[i + 1]] ?: 0
+                                    if (h > 0 && offset > h / 2f) {
+                                        order = order.toMutableList().apply { add(i + 1, removeAt(i)) }
+                                        offset -= h
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                } else if (offset < 0 && i > 0) {
+                                    val h = heights[order[i - 1]] ?: 0
+                                    if (h > 0 && -offset > h / 2f) {
+                                        order = order.toMutableList().apply { add(i - 1, removeAt(i)) }
+                                        offset += h
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    }
+                                }
+                            }
+                        },
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FavoriteRow(
     app: AppEntry,
     settings: AppSettings,
     indent: Boolean,
-    onOpen: (AppEntry) -> Unit,
-    onMenu: (AppEntry) -> Unit,
+    editing: Boolean,
+    highlighted: Boolean,
+    dimmed: Boolean,
+    onOpen: () -> Unit,
+    onMenu: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Text(
-        text = app.label(settings),
-        fontSize = if (indent) 24.sp else 28.sp,
-        fontWeight = FontWeight.Light,
-        color = Color.White,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
+    // Dra-registreringen (i [modifier]) ligger innenfor trykket, så den ser berøringen først.
+    Row(
+        Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = { onOpen(app) }, onLongClick = { onMenu(app) })
+            .combinedClickable(onClick = onOpen)
+            .then(modifier)
             .padding(start = if (indent) 28.dp else 0.dp, top = 10.dp, bottom = 10.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = app.label(settings),
+            fontSize = if (indent) 24.sp else 28.sp,
+            fontWeight = if (highlighted) FontWeight.Normal else FontWeight.Light,
+            color = if (dimmed) Dim else Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (editing) MoreButton("Valg for ${app.label(settings)}", onClick = onMenu)
+    }
+}
+
+/** «⋯» helt til høyre i sorteringsmodus: åpner menyen for appen eller gruppen. */
+@Composable
+private fun MoreButton(description: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("⋯", fontSize = 26.sp, color = Dim, modifier = Modifier.clearAndSetSemantics { })
+    }
 }
 
 @Composable

@@ -84,6 +84,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     var pinWidgetPageUntil by remember { mutableLongStateOf(0L) }
     var query by remember { mutableStateOf("") }
     var showHidden by remember { mutableStateOf(false) }
+    // Sorteringsmodus for favorittene på hjemskjermen.
+    var homeEditing by remember { mutableStateOf(false) }
     // Åpne grupper, felles for hjemskjerm og appliste. Lukkes når man går hjem.
     var expanded by remember { mutableStateOf(emptySet<String>()) }
     fun toggleGroup(name: String) {
@@ -105,6 +107,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     LaunchedEffect(Unit) {
         activity.homeEvents.collect {
             overlay = null
+            homeEditing = false
             pinWidgetPageUntil = 0L
             query = ""
             showHidden = false
@@ -115,7 +118,10 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         }
     }
 
-    LaunchedEffect(pager.settledPage) { android.util.Log.d("Launcher", "side=${pager.settledPage}") }
+    LaunchedEffect(pager.settledPage) {
+        android.util.Log.d("Launcher", "side=${pager.settledPage}")
+        if (pager.settledPage != PAGE_HOME) homeEditing = false
+    }
 
     // Mens widgetpanelet er åpent, og en stund etter at en widget er valgt (tillatelse og oppsett i
     // andre vinduer), skal siden bak stå stille på widgetsiden. Tastaturet i panelet endrer
@@ -152,6 +158,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     BackHandler {
         when {
             overlay != null -> overlay = null
+            homeEditing -> homeEditing = false
             pager.currentPage != PAGE_HOME -> {
                 android.util.Log.d("Launcher", "home: tilbake-knapp")
                 scope.launch { pager.animateScrollToPage(PAGE_HOME) }
@@ -183,6 +190,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 onMenu = { overlay = Overlay.AppMenu(it) },
                 onSettings = { overlay = Overlay.Settings },
                 onNotifications = { overlay = Overlay.Notifications },
+                editing = homeEditing,
+                onEditingChange = { homeEditing = it },
             )
             PAGE_APPS -> AppListPage(
                 settings = settings,

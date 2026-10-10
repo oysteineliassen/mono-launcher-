@@ -238,6 +238,53 @@ console.log(`Bokstavliste OK (${letters.map((n) => n.text).join('')})`);
 await home();
 console.log('Grupper OK');
 
+// 4c. Sortering på hjemskjermen: hold inne og dra en favoritt opp, ⋯ åpner menyen, Ferdig låser.
+swipeLeft();
+for (const name of ['Chrome', 'Clock']) {
+  longPress(await need(new RegExp(`^${name}$`), `${name} i applisten`));
+  tap(await need(/^Legg til på hjemskjermen$/, 'menyvalg favoritt'));
+  await sleep(800);
+}
+await home();
+let chrome = await need(/^Chrome$/, 'Chrome på hjemskjermen');
+let clock = await need(/^Clock$/, 'Clock på hjemskjermen');
+if (!(chrome.y < clock.y)) fail('forventet Chrome over Clock før sortering');
+// Hold inne på Clock, vent, og dra den opp forbi Chrome.
+sh(`adb shell input motionevent DOWN ${clock.x} ${clock.y}`);
+await sleep(1200);
+for (let i = 1; i <= 6; i++) {
+  const y = Math.round(clock.y + (chrome.y - 25 - clock.y) * i / 6);
+  sh(`adb shell input motionevent MOVE ${clock.x} ${y}`);
+  await sleep(120);
+}
+sh(`adb shell input motionevent UP ${clock.x} ${chrome.y - 25}`);
+await sleep(1000);
+shot('5e-sortering');
+await need(/^Ferdig$/, 'Ferdig i sorteringsmodus');
+if (!nodes(dump()).some((n) => n.desc === 'Valg for Clock')) fail('mangler ⋯ for Clock i sorteringsmodus');
+tap(await need(/^Ferdig$/, 'Ferdig'));
+await sleep(800);
+if (nodes(dump()).some((n) => n.desc === 'Valg for Clock')) fail('⋯ vises fortsatt etter Ferdig');
+await home();
+chrome = await need(/^Chrome$/, 'Chrome på hjemskjermen');
+clock = await need(/^Clock$/, 'Clock på hjemskjermen');
+if (!(clock.y < chrome.y)) fail(`sorteringen ble ikke lagret (Clock y=${clock.y}, Chrome y=${chrome.y})`);
+// Rydd opp via ⋯: hold inne (uten å dra) for sorteringsmodus, så ⋯ → Fjern fra hjemskjermen.
+longPress(clock);
+await sleep(800);
+for (const name of ['Clock', 'Chrome']) {
+  const more = nodes(dump()).find((n) => n.desc === `Valg for ${name}`);
+  if (!more) fail(`fant ikke ⋯ for ${name}`);
+  tap(more);
+  tap(await need(/^Fjern fra hjemskjermen$/, 'menyvalg fjern'));
+  await sleep(1000);
+}
+const done = await waitText(/^Ferdig$/, 3000);
+if (done) tap(done);
+await home();
+if (nodes(dump()).some((n) => /^(Chrome|Clock)$/.test(n.text))) fail('favorittene ble ikke fjernet');
+console.log('Sortering på hjemskjermen OK');
+
 // 5. Widgetsiden: legg til to widgeter, rediger og endre høyde.
 swipeRight();
 shot('6-widget-tom');
