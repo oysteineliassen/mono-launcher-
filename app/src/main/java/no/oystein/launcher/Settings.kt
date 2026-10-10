@@ -20,6 +20,8 @@ data class AppSettings(
     val favorites: List<String> = emptyList(),
     val hidden: Set<String> = emptySet(),
     val renames: Map<String, String> = emptyMap(),
+    /** Gruppe per app ([AppEntry.key] → gruppenavn). En gruppe finnes så lenge den har minst én app. */
+    val groups: Map<String, String> = emptyMap(),
     /** Pakker som får pauseskjerm med nedtelling før de åpnes. */
     val pausePackages: Set<String> = emptySet(),
     /** Daglig grense i minutter per pakke. */
@@ -45,25 +47,31 @@ object SettingsKeys {
     val autoKeyboard = booleanPreferencesKey("auto_keyboard")
     const val RENAME_PREFIX = "rename:"
     const val LIMIT_PREFIX = "limit:"
+    const val GROUP_PREFIX = "group:"
     fun rename(key: String) = stringPreferencesKey(RENAME_PREFIX + key)
     fun limit(pkg: String) = intPreferencesKey(LIMIT_PREFIX + pkg)
+    fun group(key: String) = stringPreferencesKey(GROUP_PREFIX + key)
 }
 
 fun Preferences.toSettings(): AppSettings {
     val renames = mutableMapOf<String, String>()
     val limits = mutableMapOf<String, Int>()
+    val groups = mutableMapOf<String, String>()
     for ((k, v) in asMap()) {
         when {
             k.name.startsWith(SettingsKeys.RENAME_PREFIX) && v is String ->
                 renames[k.name.removePrefix(SettingsKeys.RENAME_PREFIX)] = v
             k.name.startsWith(SettingsKeys.LIMIT_PREFIX) && v is Int ->
                 limits[k.name.removePrefix(SettingsKeys.LIMIT_PREFIX)] = v
+            k.name.startsWith(SettingsKeys.GROUP_PREFIX) && v is String ->
+                groups[k.name.removePrefix(SettingsKeys.GROUP_PREFIX)] = v
         }
     }
     return AppSettings(
         favorites = this[SettingsKeys.favorites]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList(),
         hidden = this[SettingsKeys.hidden] ?: emptySet(),
         renames = renames,
+        groups = groups,
         pausePackages = this[SettingsKeys.pausePackages] ?: emptySet(),
         limits = limits,
         mutedPackages = this[SettingsKeys.mutedPackages] ?: emptySet(),
@@ -114,6 +122,30 @@ class SettingsEditor(private val context: Context) {
         } else {
             it[SettingsKeys.rename(key)] = name.trim()
         }
+    }
+
+    /** Legger appen i en gruppe, eller tar den ut av gruppen når [name] er tomt. */
+    suspend fun setGroup(key: String, name: String?) = edit {
+        if (name.isNullOrBlank()) {
+            it.remove(SettingsKeys.group(key))
+        } else {
+            it[SettingsKeys.group(key)] = name.trim()
+        }
+    }
+
+    private fun MutablePreferences.groupKeys(name: String) =
+        asMap().filter { (k, v) -> k.name.startsWith(SettingsKeys.GROUP_PREFIX) && v == name }.keys
+            .map { k -> k.name.removePrefix(SettingsKeys.GROUP_PREFIX) }
+
+    suspend fun renameGroup(old: String, new: String) = edit {
+        val name = new.trim()
+        if (name.isEmpty() || name == old) return@edit
+        for (key in it.groupKeys(old)) it[SettingsKeys.group(key)] = name
+    }
+
+    /** Sletter gruppen; appene blir liggende som enkeltapper. */
+    suspend fun deleteGroup(name: String) = edit {
+        for (key in it.groupKeys(name)) it.remove(SettingsKeys.group(key))
     }
 
     suspend fun setPause(pkg: String, on: Boolean) = edit { it.toggle(SettingsKeys.pausePackages, pkg, on) }

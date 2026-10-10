@@ -133,6 +133,28 @@ tap(await need(/^Avbryt$/, 'Avbryt'));
 await need(/^Oppsett$/, 'tilbake på hjemskjermen');
 console.log('Pauseskjerm OK');
 
+// 4b. Grupper: legg Oppsett i gruppen «System» fra hjemskjermen.
+longPress(await need(/^Oppsett$/, 'Oppsett på hjemskjermen'));
+tap(await need(/^Legg i gruppe$/, 'menyvalg gruppe'));
+await sleep(1000);
+sh('adb shell input text System');
+tap(await need(/^Lag gruppe$/, 'Lag gruppe'));
+await home();
+const groupHeader = await need(/^System$/, 'gruppen på hjemskjermen');
+if (nodes(dump()).some((n) => n.text === 'Oppsett')) fail('appen i gruppen skal være skjult til gruppen åpnes');
+tap(groupHeader);
+await need(/^Oppsett$/, 'appen i den åpne gruppen');
+shot('5b-gruppe-hjem');
+swipeLeft();
+await sleep(1000);
+const listNodes = nodes(dump()).filter((n) => n.text);
+const gi = listNodes.findIndex((n) => n.text === 'System');
+const first = listNodes.findIndex((n) => /^(Calendar|Camera|Chrome|Clock)$/.test(n.text));
+if (gi < 0 || first < 0 || gi > first) fail('gruppen skal stå øverst i applisten: ' + listNodes.map((n) => n.text).join(' | '));
+shot('5c-gruppe-liste');
+await home();
+console.log('Grupper OK');
+
 // 5. Widgetsiden
 swipeRight();
 const pick = await need(/^Velg widget$/, 'Velg widget');

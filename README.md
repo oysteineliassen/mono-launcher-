@@ -13,6 +13,9 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 
 - **Hold inne på en app** (i listen eller på hjemskjermen): legg til/fjern på hjemskjermen, endre navn, skjul,
   pauseskjerm, daglig grense, demp varsler, appinfo, avinstaller.
+- **Grupper:** hold inne på en app → «Legg i gruppe». Grupper står øverst i alfabetisk rekkefølge, før enkeltappene,
+  både i applisten og på hjemskjermen (der med favorittene som ligger i gruppen). Trykk på en gruppe for å åpne/lukke
+  den, hold inne for å endre navn eller slette den (appene beholdes).
 - **Hold inne på tom plass** på hjemskjermen: innstillinger (tilganger, favorittrekkefølge, widget, pauseskjerm,
   grenser, dempede apper, skjulte apper, skjermtid i dag).
 - **Sveip ned** på hjemskjermen: varselpanelet. Trykk på klokken for alarmer, på datoen for kalenderen.

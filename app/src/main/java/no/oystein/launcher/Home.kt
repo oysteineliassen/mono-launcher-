@@ -57,6 +57,9 @@ fun HomePage(
     apps: List<AppEntry>,
     usage: Map<String, Long>,
     mutedCount: Int,
+    expanded: Set<String>,
+    onToggleGroup: (String) -> Unit,
+    onGroupMenu: (String) -> Unit,
     onOpen: (AppEntry) -> Unit,
     onMenu: (AppEntry) -> Unit,
     onSettings: () -> Unit,
@@ -69,6 +72,8 @@ fun HomePage(
     val dateFormat = remember { DateTimeFormatter.ofPattern("EEEE d. MMMM", norsk) }
     val byKey = remember(apps) { apps.associateBy { it.key } }
     val favorites = settings.favorites.mapNotNull { byKey[it] }
+    // Favoritter som ligger i en gruppe vises under gruppen; gruppene står øverst i alfabetisk rekkefølge.
+    val (groups, singles) = remember(favorites, settings) { favorites.grouped(settings) }
 
     Box(
         Modifier
@@ -143,20 +148,21 @@ fun HomePage(
                         color = Faint,
                     )
                 }
-                for (app in favorites) {
-                    Text(
-                        text = app.label(settings),
+                for (group in groups) {
+                    val open = group.name in expanded
+                    GroupHeader(
+                        group = group,
+                        expanded = open,
                         fontSize = 28.sp,
-                        fontWeight = FontWeight.Light,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(onClick = { onOpen(app) }, onLongClick = { onMenu(app) })
-                            .padding(vertical = 10.dp),
+                        verticalPadding = 10,
+                        onToggle = { onToggleGroup(group.name) },
+                        onMenu = { onGroupMenu(group.name) },
                     )
+                    if (open) {
+                        for (app in group.apps) FavoriteRow(app, settings, indent = true, onOpen, onMenu)
+                    }
                 }
+                for (app in singles) FavoriteRow(app, settings, indent = false, onOpen, onMenu)
             }
             Spacer(Modifier.weight(1f))
         }
@@ -170,4 +176,27 @@ private fun expandNotifications(activity: MainActivity) {
         val sbm = activity.getSystemService("statusbar")
         sbm.javaClass.getMethod("expandNotificationsPanel").invoke(sbm)
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FavoriteRow(
+    app: AppEntry,
+    settings: AppSettings,
+    indent: Boolean,
+    onOpen: (AppEntry) -> Unit,
+    onMenu: (AppEntry) -> Unit,
+) {
+    Text(
+        text = app.label(settings),
+        fontSize = if (indent) 24.sp else 28.sp,
+        fontWeight = FontWeight.Light,
+        color = Color.White,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = { onOpen(app) }, onLongClick = { onMenu(app) })
+            .padding(start = if (indent) 28.dp else 0.dp, top = 10.dp, bottom = 10.dp),
+    )
 }

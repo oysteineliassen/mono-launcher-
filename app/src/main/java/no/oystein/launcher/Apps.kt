@@ -94,10 +94,10 @@ class AppRepository(private val context: Context) {
 fun AppEntry.label(settings: AppSettings): String =
     settings.renames[key] ?: (if (isWorkProfile) "$originalLabel (jobb)" else originalLabel)
 
-private val collator: Collator = Collator.getInstance(Locale("nb", "NO")).apply { strength = Collator.PRIMARY }
+val nbCollator: Collator = Collator.getInstance(Locale("nb", "NO")).apply { strength = Collator.PRIMARY }
 
 fun List<AppEntry>.sortedByLabel(settings: AppSettings): List<AppEntry> =
-    sortedWith { a, b -> collator.compare(a.label(settings), b.label(settings)) }
+    sortedWith { a, b -> nbCollator.compare(a.label(settings), b.label(settings)) }
 
 /** Søk som tåler små feil: starter med, inneholder ord som starter med, eller inneholder. */
 fun List<AppEntry>.search(query: String, settings: AppSettings): List<AppEntry> {

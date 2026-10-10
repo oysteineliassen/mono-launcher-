@@ -55,6 +55,9 @@ sealed interface Overlay {
     data class AppMenu(val app: AppEntry) : Overlay
     data class Rename(val app: AppEntry) : Overlay
     data class Limit(val app: AppEntry) : Overlay
+    data class Group(val app: AppEntry) : Overlay
+    data class GroupMenu(val name: String) : Overlay
+    data class RenameGroup(val name: String) : Overlay
     data class Pause(val app: AppEntry) : Overlay
 }
 
@@ -78,6 +81,11 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     var overlay by remember { mutableStateOf<Overlay?>(null) }
     var query by remember { mutableStateOf("") }
     var showHidden by remember { mutableStateOf(false) }
+    // Åpne grupper, felles for hjemskjerm og appliste. Lukkes når man går hjem.
+    var expanded by remember { mutableStateOf(emptySet<String>()) }
+    fun toggleGroup(name: String) {
+        expanded = if (name in expanded) expanded - name else expanded + name
+    }
     val pager = rememberPagerState(initialPage = PAGE_HOME) { 3 }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -96,6 +104,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             overlay = null
             query = ""
             showHidden = false
+            expanded = emptySet()
             keyboard?.hide()
             focus.clearFocus()
             pager.scrollToPage(PAGE_HOME)
@@ -140,6 +149,9 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 apps = allApps,
                 usage = usage,
                 mutedCount = muted.size,
+                expanded = expanded,
+                onToggleGroup = ::toggleGroup,
+                onGroupMenu = { overlay = Overlay.GroupMenu(it) },
                 onOpen = ::open,
                 onMenu = { overlay = Overlay.AppMenu(it) },
                 onSettings = { overlay = Overlay.Settings },
@@ -155,6 +167,9 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 onShowHidden = { showHidden = it },
                 isCurrent = pager.settledPage == PAGE_APPS,
                 overlayOpen = overlay != null,
+                expanded = expanded,
+                onToggleGroup = ::toggleGroup,
+                onGroupMenu = { overlay = Overlay.GroupMenu(it) },
                 onOpen = ::open,
                 onMenu = { overlay = Overlay.AppMenu(it) },
                 onSettings = { overlay = Overlay.Settings },
@@ -171,6 +186,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             usage = usage,
             resumeCount = resumeCount,
             onPickWidget = { overlay = Overlay.WidgetPicker },
+            onRenameGroup = { overlay = Overlay.RenameGroup(it) },
             onClose = { overlay = null },
         )
         Overlay.Notifications -> NotificationsScreen(
@@ -192,10 +208,19 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             settings = settings,
             onRename = { overlay = Overlay.Rename(o.app) },
             onLimit = { overlay = Overlay.Limit(o.app) },
+            onGroup = { overlay = Overlay.Group(o.app) },
             onClose = { overlay = null },
         )
         is Overlay.Rename -> RenameDialog(activity, o.app, settings, onClose = { overlay = null })
         is Overlay.Limit -> LimitDialog(activity, o.app, settings, onClose = { overlay = null })
+        is Overlay.Group -> GroupDialog(activity, o.app, settings, onClose = { overlay = null })
+        is Overlay.GroupMenu -> GroupMenu(
+            activity = activity,
+            name = o.name,
+            onRename = { overlay = Overlay.RenameGroup(o.name) },
+            onClose = { overlay = null },
+        )
+        is Overlay.RenameGroup -> RenameGroupDialog(activity, o.name, onClose = { overlay = null })
         is Overlay.Pause -> PauseScreen(
             app = o.app,
             settings = settings,

@@ -138,6 +138,7 @@ fun AppMenu(
     settings: AppSettings,
     onRename: () -> Unit,
     onLimit: () -> Unit,
+    onGroup: () -> Unit,
     onClose: () -> Unit,
 ) {
     // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
@@ -158,6 +159,7 @@ fun AppMenu(
         Spacer(Modifier.height(12.dp))
         MenuItem(if (isFav) "Fjern fra hjemskjermen" else "Legg til på hjemskjermen") { act { e.setFavorite(app.key, !isFav) } }
         MenuItem("Endre navn", onRename)
+        MenuItem(settings.groups[app.key]?.let { "Gruppe: $it" } ?: "Legg i gruppe", onGroup)
         MenuItem(if (isHidden) "Vis i applisten" else "Skjul fra applisten") { act { e.setHidden(app.key, !isHidden) } }
         MenuItem(if (pause) "Pauseskjerm: på" else "Pauseskjerm: av") { act { e.setPause(app.packageName, !pause) } }
         MenuItem(if (limit != null) "Daglig grense: $limit min" else "Daglig grense: ingen", onLimit)

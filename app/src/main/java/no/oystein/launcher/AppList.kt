@@ -52,6 +52,9 @@ fun AppListPage(
     onShowHidden: (Boolean) -> Unit,
     isCurrent: Boolean,
     overlayOpen: Boolean,
+    expanded: Set<String>,
+    onToggleGroup: (String) -> Unit,
+    onGroupMenu: (String) -> Unit,
     onOpen: (AppEntry) -> Unit,
     onMenu: (AppEntry) -> Unit,
     onSettings: () -> Unit,
@@ -66,6 +69,16 @@ fun AppListPage(
     }
     val results = remember(visible, query, settings) { visible.search(query, settings) }
     val hiddenCount = remember(apps, settings) { apps.count { it.key in settings.hidden } }
+    // Uten søk: grupper øverst (alfabetisk), så enkeltappene. Med søk: grupper med treff i navnet
+    // vises åpne øverst, deretter alle apper som passer søket.
+    val (groups, singles) = remember(visible, results, query, settings) {
+        if (query.isBlank()) {
+            results.grouped(settings)
+        } else {
+            val q = query.trim().lowercase()
+            visible.grouped(settings).first.filter { it.name.lowercase().contains(q) } to results
+        }
+    }
 
     // Tastaturet følger siden og eventuelle dialoger; søket nullstilles bare når man forlater siden.
     LaunchedEffect(isCurrent, overlayOpen) {
@@ -124,31 +137,28 @@ fun AppListPage(
         HorizontalDivider(color = Faint)
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("applist")) {
             item { Spacer(Modifier.height(8.dp)) }
-            items(results, key = { it.key }) { app ->
-                val hidden = app.key in settings.hidden
-                val used = usage[app.packageName] ?: 0L
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(onClick = { openAndReset(app) }, onLongClick = { onMenu(app) })
-                        .padding(vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        app.label(settings),
+            for (group in groups) {
+                val open = query.isNotBlank() || group.name in expanded
+                item(key = "g:" + group.name) {
+                    GroupHeader(
+                        group = group,
+                        expanded = open,
                         fontSize = 22.sp,
-                        fontWeight = FontWeight.Light,
-                        color = if (hidden) Faint else Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+                        verticalPadding = 11,
+                        onToggle = { onToggleGroup(group.name) },
+                        onMenu = { onGroupMenu(group.name) },
                     )
-                    if (used >= 60_000L) {
-                        Text(Usage.format(used), fontSize = 13.sp, color = Faint)
+                }
+                if (open) {
+                    items(group.apps, key = { "g:${group.name}:${it.key}" }) { app ->
+                        AppRow(app, settings, usage, indent = true, onOpen = ::openAndReset, onMenu = onMenu)
                     }
                 }
             }
-            if (results.isEmpty() && query.isNotBlank()) {
+            items(singles, key = { it.key }) { app ->
+                AppRow(app, settings, usage, indent = false, onOpen = ::openAndReset, onMenu = onMenu)
+            }
+            if (results.isEmpty() && groups.isEmpty() && query.isNotBlank()) {
                 item { Text("Ingen treff", fontSize = 18.sp, color = Faint, modifier = Modifier.padding(vertical = 12.dp)) }
             }
             item {
@@ -175,6 +185,40 @@ fun AppListPage(
                 )
                 Spacer(Modifier.height(48.dp))
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AppRow(
+    app: AppEntry,
+    settings: AppSettings,
+    usage: Map<String, Long>,
+    indent: Boolean,
+    onOpen: (AppEntry) -> Unit,
+    onMenu: (AppEntry) -> Unit,
+) {
+    val hidden = app.key in settings.hidden
+    val used = usage[app.packageName] ?: 0L
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = { onOpen(app) }, onLongClick = { onMenu(app) })
+            .padding(start = if (indent) 24.dp else 0.dp, top = 11.dp, bottom = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            app.label(settings),
+            fontSize = if (indent) 20.sp else 22.sp,
+            fontWeight = FontWeight.Light,
+            color = if (hidden) Faint else Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (used >= 60_000L) {
+            Text(Usage.format(used), fontSize = 13.sp, color = Faint)
         }
     }
 }

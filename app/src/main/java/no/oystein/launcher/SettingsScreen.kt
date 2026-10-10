@@ -31,6 +31,7 @@ fun SettingsScreen(
     usage: Map<String, Long>,
     resumeCount: Int,
     onPickWidget: () -> Unit,
+    onRenameGroup: (String) -> Unit,
     onClose: () -> Unit,
 ) {
     // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
@@ -76,6 +77,17 @@ fun SettingsScreen(
                     TextAction("↑") { go { e.moveFavorite(key, -1) } }
                     TextAction("↓") { go { e.moveFavorite(key, 1) } }
                     TextAction("Fjern") { go { e.setFavorite(key, false) } }
+                }
+            }
+
+            sectionHeader("Grupper")
+            val groupNames = settings.groupNames()
+            if (groupNames.isEmpty()) item { Hint("Hold inne på en app og velg «Legg i gruppe».") }
+            items(groupNames, key = { "group:$it" }) { name ->
+                val count = settings.groups.values.count { it == name }
+                ListRow("$name ($count)") {
+                    TextAction("Endre navn") { onRenameGroup(name) }
+                    TextAction("Slett") { go { e.deleteGroup(name) } }
                 }
             }
 
