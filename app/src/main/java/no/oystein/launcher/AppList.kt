@@ -1,5 +1,9 @@
 package no.oystein.launcher
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -153,14 +157,14 @@ fun AppListPage(
                     }
                 },
             )
-            Text(
-                "Innstillinger",
-                fontSize = 15.sp,
-                color = Dim,
-                modifier = Modifier
-                    .clickable { keyboard?.hide(); onSettings() }
-                    .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
-            )
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clickable { keyboard?.hide(); onSettings() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.Settings, contentDescription = "Innstillinger", tint = Dim, modifier = Modifier.size(24.dp))
+            }
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(Modifier.padding(end = 32.dp), color = Faint)

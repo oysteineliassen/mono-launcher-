@@ -1,5 +1,16 @@
 package no.oystein.launcher
 
+import android.provider.MediaStore
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.provider.AlarmClock
@@ -165,6 +176,11 @@ fun HomePage(
                 for (app in singles) FavoriteRow(app, settings, indent = false, onOpen, onMenu)
             }
             Spacer(Modifier.weight(1f))
+            // Snarveier nederst: telefon til venstre, kamera til høyre.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                CornerIcon(Icons.Outlined.Phone, "Telefon") { openDialer(activity) }
+                CornerIcon(Icons.Outlined.PhotoCamera, "Kamera") { openCamera(activity) }
+            }
         }
     }
 }
@@ -199,4 +215,31 @@ private fun FavoriteRow(
             .combinedClickable(onClick = { onOpen(app) }, onLongClick = { onMenu(app) })
             .padding(start = if (indent) 28.dp else 0.dp, top = 10.dp, bottom = 10.dp),
     )
+}
+
+@Composable
+private fun CornerIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(52.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = label, tint = Dim, modifier = Modifier.size(26.dp))
+    }
+}
+
+private fun openDialer(activity: MainActivity) {
+    runCatching { activity.startActivity(Intent(Intent.ACTION_DIAL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+/** Åpner kameraappen (fotomodus), med vanlig oppstart av kameraappen som reserve. */
+private fun openCamera(activity: MainActivity) {
+    val still = Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    val ok = runCatching { activity.startActivity(still) }.isSuccess
+    if (!ok) {
+        val main = Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, "android.intent.category.APP_CAMERA")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { activity.startActivity(main) }
+    }
 }

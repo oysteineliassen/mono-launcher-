@@ -32,8 +32,9 @@ function nodes(xml) {
     const a = m[0];
     const text = (a.match(/ text="([^"]*)"/) || [])[1] || '';
     const cls = (a.match(/ class="([^"]*)"/) || [])[1] || '';
+    const desc = (a.match(/ content-desc="([^"]*)"/) || [])[1] || '';
     const b = (a.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/) || []).slice(1).map(Number);
-    if (b.length === 4) out.push({ text: text.replace(/&amp;/g, '&'), cls, x: (b[0] + b[2]) >> 1, y: (b[1] + b[3]) >> 1 });
+    if (b.length === 4) out.push({ text: text.replace(/&amp;/g, '&'), cls, desc, x: (b[0] + b[2]) >> 1, y: (b[1] + b[3]) >> 1 });
   }
   return out;
 }
@@ -90,6 +91,40 @@ await need(/(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag) \d+\./, 'dato
 await need(/Sveip til venstre/, 'hint om favoritter');
 shot('1-hjem');
 console.log('Hjemskjerm OK');
+
+// Snarveiene i hjørnene: telefon nede til venstre, kamera nede til høyre.
+const topActivity = () => {
+  try { return sh(`adb shell dumpsys activity activities | grep -m1 -E "topResumedActivity|mResumedActivity"`); } catch { return ''; }
+};
+async function needDesc(desc) {
+  const end = Date.now() + 10000;
+  while (Date.now() < end) {
+    const n = nodes(dump()).find((n) => n.desc === desc);
+    if (n) return n;
+    await sleep(700);
+  }
+  fail(`fant ikke ikonet «${desc}» på hjemskjermen`);
+}
+if (!QUICK) {
+  const phone = await needDesc('Telefon');
+  const camera = await needDesc('Kamera');
+  if (!(phone.x < W / 2 && camera.x > W / 2 && phone.y > H * 0.7 && camera.y > H * 0.7)) {
+    fail(`ikonene står feil: telefon (${phone.x},${phone.y}), kamera (${camera.x},${camera.y})`);
+  }
+  tap(phone);
+  await sleep(2500);
+  const afterPhone = topActivity();
+  console.log('Etter telefon:', afterPhone);
+  if (!/dialer|contacts|phone/i.test(afterPhone)) fail('telefonappen åpnet seg ikke');
+  await home();
+  tap(await needDesc('Kamera'));
+  await sleep(3000);
+  const afterCamera = topActivity();
+  console.log('Etter kamera:', afterCamera);
+  if (!/camera|permissioncontroller/i.test(afterCamera)) fail('kameraet åpnet seg ikke');
+  await home();
+  console.log('Telefon og kamera OK');
+}
 
 // 2. Applisten med søk
 swipeLeft();
