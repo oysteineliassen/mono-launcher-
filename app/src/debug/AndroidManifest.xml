@@ -8,6 +8,10 @@
             <intent-filter>
                 <action android:name="no.oystein.launcher.TEST_MUTE" />
                 <action android:name="no.oystein.launcher.TEST_PIN" />
+                <action android:name="no.oystein.launcher.TEST_LOCK" />
+                <action android:name="no.oystein.launcher.TEST_DELIVERY" />
+                <action android:name="no.oystein.launcher.TEST_BACKUP" />
+                <action android:name="no.oystein.launcher.TEST_NEXT" />
             </intent-filter>
         </receiver>
     </application>

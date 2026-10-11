@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -353,4 +354,47 @@ fun LazyListScope.sectionHeader(text: String) {
             modifier = Modifier.padding(top = 28.dp, bottom = 4.dp),
         )
     }
+}
+
+/** Når dempede varsler skal vises: «med en gang» eller på faste klokkeslett. */
+@Composable
+fun DeliveryDialog(activity: MainActivity, settings: AppSettings, onClose: () -> Unit) {
+    // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
+    val scope = activity.lifecycleScope
+    var text by remember { mutableStateOf(settings.mutedDelivery.joinToString(", ") { formatMinutes(it) }) }
+    val fr = remember { FocusRequester() }
+    fun save(times: List<Int>) {
+        scope.launch { activity.editor.setMutedDelivery(times) }
+        onClose()
+    }
+    TextDialog(onClose) {
+        Text("Vis dempede varsler kl.", fontSize = 22.sp, fontWeight = FontWeight.Light, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Varslene samles og vises på hjemskjermen på disse klokkeslettene, f.eks. «12, 18». Tomt: med en gang.",
+            fontSize = 14.sp,
+            color = Dim,
+        )
+        Spacer(Modifier.height(16.dp))
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it },
+            singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontSize = 20.sp),
+            cursorBrush = SolidColor(Color.White),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { save(parseTimes(text)) }),
+            modifier = Modifier.fillMaxWidth().focusRequester(fr).testTag("deliverytimes"),
+        )
+        HorizontalDivider(color = Faint)
+        Spacer(Modifier.height(8.dp))
+        Row {
+            TextAction("Lagre", color = Color.White) { save(parseTimes(text)) }
+            Spacer(Modifier.width(16.dp))
+            TextAction("Med en gang") { save(emptyList()) }
+            Spacer(Modifier.width(16.dp))
+            TextAction("Avbryt", onClick = onClose)
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
 }

@@ -108,6 +108,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             withContext(Dispatchers.IO) { activity.apps.saveCache(loaded) }
         }
     }
+    // Ny versjon på GitHub? Sjekkes når launcheren vises (høyst hver tredje time).
+    LaunchedEffect(resumeCount) { Updater.check(activity) }
     LaunchedEffect(resumeCount, pager.settledPage) {
         usage = withContext(Dispatchers.Default) { Usage.today(activity) }
     }
@@ -200,7 +202,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 settings = settings,
                 apps = allApps,
                 usage = usage,
-                mutedCount = muted.size,
+                muted = muted,
                 expanded = expanded,
                 onToggleGroup = ::toggleGroup,
                 onGroupMenu = { overlay = Overlay.GroupMenu(it) },
@@ -245,7 +247,10 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         )
         Overlay.Notifications -> NotificationsScreen(
             activity = activity,
-            items = muted,
+            items = remember(muted, settings.mutedDelivery, resumeCount) {
+                val cutoff = settings.mutedCutoff()
+                muted.filter { it.time <= cutoff }
+            },
             onClose = { overlay = null },
         )
         Overlay.WidgetPicker -> WidgetSheet(

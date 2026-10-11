@@ -543,6 +543,92 @@ await need(/Testvarsel/, 'det dempede varselet i listen');
 shot('10-varselliste');
 console.log('Varselfilter OK');
 
+// 7b. Dempede varsler på faste tider: med neste levering om to timer skal nye varsler holdes tilbake.
+const launcherLog = () => { try { return sh(`adb logcat -d -s Launcher:D`); } catch { return ''; } };
+sh(`adb shell am broadcast -a ${PKG}.TEST_DELIVERY --es mode later -p ${PKG}`);
+await sleep(1000);
+MutedClear: {
+  await home();
+  // Fjern de gamle, så bare det nye varselet teller.
+  const line = await waitText(/dempe(t|de) varsel/, 3000);
+  if (!line) break MutedClear;
+  tap(line);
+  const clearAll = await waitText(/^Fjern alle$/, 5000);
+  if (clearAll) tap(clearAll);
+  await sleep(800);
+}
+sh(`adb shell cmd notification post -t Holdes smoke2 "Skal vente"`);
+await sleep(3000);
+await home();
+await sleep(1500);
+if (nodes(dump()).some((n) => /dempe(t|de) varsel/.test(n.text))) fail('varselet skulle holdes tilbake til neste leveringstid');
+sh(`adb shell am broadcast -a ${PKG}.TEST_DELIVERY --es mode now -p ${PKG}`);
+await home();
+if (!(await waitText(/dempe(t|de) varsel/, 8000))) fail('varselet kom ikke fram etter at levering ble satt til «med en gang»');
+console.log('Varsler på faste tider OK');
+
+// 7c. Sikkerhetskopi: eksporter, endre, importer og sjekk at oppsettet er tilbake.
+sh(`adb shell am broadcast -a ${PKG}.TEST_BACKUP -p ${PKG}`);
+{
+  let line = '';
+  for (let i = 0; i < 10 && !line; i++) { await sleep(800); line = launcherLog().split('\n').find((l) => l.includes('test: sikkerhetskopi')) || ''; }
+  console.log(line.trim());
+  if (!/sikkerhetskopi ok/.test(line)) fail('eksport/import av oppsettet virket ikke: ' + line);
+}
+await home();
+console.log('Sikkerhetskopi OK');
+
+// 7d. Neste alarm under datoen.
+sh(`adb shell am broadcast -a ${PKG}.TEST_NEXT -p ${PKG}`);
+{
+  const hour = Number(sh('adb shell date +%H').trim());
+  const alarmHour = (hour + 3) % 24;
+  sh(`adb shell am start -a android.intent.action.SET_ALARM --ei android.intent.extra.alarm.HOUR ${alarmHour} --ei android.intent.extra.alarm.MINUTES 15 --ez android.intent.extra.alarm.SKIP_UI true || true`);
+  await sleep(3000);
+  await home();
+  const alarm = await waitText(/^Alarm( i morgen)? \d\d:15$/, 10000);
+  shot('10b-neste-alarm');
+  console.log('Neste alarm:', alarm ? alarm.text : '(ingen)', ' nextalarm:', sh('adb shell dumpsys alarm | grep -m1 -i "nextAlarmClock\\|next alarm clock" || true').trim());
+  if (!alarm) fail('neste alarm vises ikke under datoen');
+}
+console.log('Neste hendelse OK');
+
+// 7e. Dobbelttrykk for å låse: slå på tjenesten, lås, og vekk telefonen igjen.
+sh(`adb shell settings put secure enabled_accessibility_services ${PKG}/${PKG}.LockService`);
+sh('adb shell settings put secure accessibility_enabled 1');
+await sleep(3000);
+await home();
+{
+  // Dobbelttrykk på tom plass (mellom datoen og favorittene).
+  sh(`adb shell "input tap ${W / 2 | 0} ${H * 0.42 | 0} & sleep 0.08; input tap ${W / 2 | 0} ${H * 0.42 | 0}"`);
+  await sleep(2000);
+  let wake = sh('adb shell dumpsys power | grep -m1 mWakefulness=').trim();
+  console.log('Etter dobbelttrykk:', wake);
+  if (/Awake/.test(wake)) {
+    // Dobbelttrykket fra adb rakk ikke alltid innenfor tidsgrensen; sjekk at selve låsingen virker.
+    console.log('Dobbelttrykket ble ikke registrert av emulatoren; låser direkte via tjenesten');
+    sh(`adb shell am broadcast -a ${PKG}.TEST_LOCK -p ${PKG}`);
+    await sleep(2000);
+    wake = sh('adb shell dumpsys power | grep -m1 mWakefulness=').trim();
+    console.log('Etter lås:', wake, launcherLog().split('\n').filter((l) => l.includes('test: lås')).join(' '));
+  }
+  if (/Awake/.test(wake)) fail('skjermen ble ikke låst: ' + wake);
+  sh('adb shell input keyevent KEYCODE_WAKEUP');
+  await sleep(1000);
+  sh('adb shell wm dismiss-keyguard || true');
+  await sleep(1500);
+  sh(`adb shell settings delete secure enabled_accessibility_services || true`);
+}
+console.log('Låsing OK');
+
+// 7f. Oppdatering: launcheren ser selv etter nye versjoner på GitHub.
+{
+  const line = launcherLog().split('\n').find((l) => l.includes('oppdatering:')) || '';
+  console.log('Oppdateringssjekk:', line.trim() || '(ingen logglinje)');
+  if (!line) fail('launcheren så ikke etter oppdateringer');
+}
+console.log('Oppdatering OK');
+
 // 8. Festede snarveier (nettapper/PWA): be om å feste en snarvei slik Chrome gjør.
 await home();
 sh(`adb shell am broadcast -a ${PKG}.TEST_PIN -p ${PKG}`);

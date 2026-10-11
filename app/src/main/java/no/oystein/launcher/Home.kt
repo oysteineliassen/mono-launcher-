@@ -46,6 +46,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.widget.Toast
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -138,7 +142,7 @@ fun HomePage(
     settings: AppSettings,
     apps: List<AppEntry>,
     usage: Map<String, Long>,
-    mutedCount: Int,
+    muted: List<MutedItem>,
     expanded: Set<String>,
     onToggleGroup: (String) -> Unit,
     onGroupMenu: (String) -> Unit,
@@ -154,6 +158,19 @@ fun HomePage(
         DateTimeFormatter.ofPattern(if (settings.use24h) "HH:mm" else "h:mm", norsk)
     }
     val dateFormat = remember { DateTimeFormatter.ofPattern("EEEE d. MMMM", norsk) }
+    // Dempede varsler holdes tilbake til neste leveringstidspunkt hvis det er valgt i innstillingene.
+    val mutedCount = remember(muted, settings.mutedDelivery, now) {
+        val cutoff = settings.mutedCutoff(now)
+        muted.count { it.time <= cutoff }
+    }
+    val nextLines by produceState(emptyList<String>(), settings.showNextEvent, now) {
+        value = if (!settings.showNextEvent) emptyList() else withContext(Dispatchers.IO) {
+            listOfNotNull(NextEvent.nextEvent(activity), NextEvent.nextAlarm(activity))
+        }
+    }
+    val update by Updater.state.collectAsState()
+    val currentSettings by rememberUpdatedState(settings)
+    val currentEditingRoot by rememberUpdatedState(editing)
     val byKey = remember(apps) { apps.associateBy { it.key } }
     val favorites = settings.favorites.mapNotNull { byKey[it] }
 
@@ -173,7 +190,12 @@ fun HomePage(
     Box(
         Modifier
             .fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures(onLongPress = { onSettings() }) }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = { onSettings() },
+                    onDoubleTap = { if (currentSettings.doubleTapLock && !currentEditingRoot) lockScreen(activity) },
+                )
+            }
             .observeSwipeDown(
                 enabled = { !currentEditing && favoritesScroll.value == 0 },
                 onSwipeDown = { expandNotifications(activity) },
@@ -207,6 +229,24 @@ fun HomePage(
                     activity.startInternal(i)
                 }),
             )
+            for (line in nextLines) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    line,
+                    fontSize = 15.sp,
+                    color = Dim,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.combinedClickable(onClick = {
+                        val i = if (line.startsWith("Alarm")) {
+                            Intent(AlarmClock.ACTION_SHOW_ALARMS)
+                        } else {
+                            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CALENDAR)
+                        }
+                        activity.startInternal(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }),
+                )
+            }
             if (settings.showScreenTime && usage.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -224,6 +264,25 @@ fun HomePage(
                     modifier = Modifier
                         .combinedClickable(onClick = onNotifications)
                         .padding(vertical = 4.dp),
+                )
+            }
+
+            updateText(update)?.let { text ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text,
+                    fontSize = 15.sp,
+                    color = Dim,
+                    modifier = Modifier
+                        .combinedClickable(onClick = {
+                            when (val u = update) {
+                                is Updater.State.Available -> activity.lifecycleScope.launch { Updater.install(activity, u.release) }
+                                is Updater.State.Failed -> activity.lifecycleScope.launch { Updater.check(activity, force = true) }
+                                else -> {}
+                            }
+                        })
+                        .padding(vertical = 4.dp)
+                        .testTag("update"),
                 )
             }
 
@@ -331,6 +390,26 @@ private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () ->
             }
         }
     }
+
+/** Tekst om ny versjon på hjemskjermen, eller null når det ikke er noe å si. */
+fun updateText(state: Updater.State): String? = when (state) {
+    is Updater.State.Available -> "Ny versjon ${state.release.versionName} – trykk for å oppdatere"
+    is Updater.State.Downloading -> "Laster ned oppdatering … ${state.percent} %"
+    is Updater.State.Installing -> "Installerer oppdatering …"
+    is Updater.State.Failed -> "${state.message} Trykk for å prøve igjen."
+    Updater.State.Idle -> null
+}
+
+/** Låser telefonen (dobbelttrykk), eller forklarer hvordan tjenesten slås på. */
+private fun lockScreen(activity: MainActivity) {
+    if (LockService.lock()) return
+    Toast.makeText(
+        activity,
+        "Slå på «Launcher» under Tilgjengelighet for å låse med dobbelttrykk",
+        Toast.LENGTH_LONG,
+    ).show()
+    activity.startInternal(LockService.settingsIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
 
 /** Trekker ned varselpanelet (sveip ned på hjemskjermen). */
 @SuppressLint("WrongConstant")

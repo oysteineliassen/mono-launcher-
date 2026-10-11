@@ -66,6 +66,51 @@ class MainActivity : ComponentActivity() {
     private var pendingWidgetId = -1
     private var pendingWidgetInfo: AppWidgetProviderInfo? = null
 
+    // ---- Sikkerhetskopi og tillatelser ----
+
+    private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val r = runCatching { Backup.export(this@MainActivity, uri) }
+            Log.d(TAG, "eksport: ${r.exceptionOrNull()?.message ?: "ok"}")
+            toast(if (r.isSuccess) "Oppsettet er lagret" else "Kunne ikke lagre: ${r.exceptionOrNull()?.message}")
+        }
+    }
+
+    private val importFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val r = runCatching { Backup.import(this@MainActivity, uri) }
+            Log.d(TAG, "import: ${r.getOrNull() ?: r.exceptionOrNull()?.message}")
+            toast(
+                if (r.isSuccess) "Oppsettet er lest inn (${r.getOrNull()} innstillinger)"
+                else "Kunne ikke lese inn: ${r.exceptionOrNull()?.message}"
+            )
+        }
+    }
+
+    private val calendarPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        Log.d(TAG, "kalendertilgang: $granted")
+        _resumeCount.value++
+    }
+
+    private fun toast(text: String) = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show()
+
+    fun exportSettings() {
+        markInternalLaunch()
+        exportFile.launch("launcher-oppsett-${java.time.LocalDate.now()}.json")
+    }
+
+    fun importSettings() {
+        markInternalLaunch()
+        importFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+    }
+
+    fun requestCalendarPermission() {
+        markInternalLaunch()
+        calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
+    }
+
     private val bindWidget = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val id = pendingWidgetId
         val info = pendingWidgetInfo

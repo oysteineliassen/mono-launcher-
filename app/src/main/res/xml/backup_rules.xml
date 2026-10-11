@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sikkerhetskopi (Android 10–11): innstillingene og dempede varsler, ikke hurtiglageret for applisten. -->
+<full-backup-content>
+    <exclude domain="file" path="apps-cache.tsv" />
+</full-backup-content>

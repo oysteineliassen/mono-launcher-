@@ -25,12 +25,20 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
   på hjemskjermen. Hold inne på den og velg «Fjern snarvei» for å fjerne den. Snarveier som ble lagt til mens en annen
   startskjerm var standard, følger ikke med – legg dem til på nytt fra Chrome.
 - **Hjem-knappen** går alltid tilbake til hjemskjermen. Det gjør også opplåsing.
+- **Dobbelttrykk** på tom plass på hjemskjermen låser telefonen. Krever at «Launcher» slås på under
+  Tilgjengelighet (Innstillinger → Tilganger → Låsing). Tjenesten leser ikke noe fra skjermen.
+- **Neste hendelse og alarm** kan vises under datoen (slås på i innstillingene; spør om kalendertilgang).
+- **Sikkerhetskopi:** Innstillinger → Sikkerhetskopi eksporterer/importerer hele oppsettet som en fil
+  (widgetene må legges til på nytt). Android tar i tillegg automatisk sikkerhetskopi.
+- **Oppdatering:** launcheren ser selv etter nye versjoner under Releases og sier fra på hjemskjermen.
+  Trykk for å laste ned og installere (første gang må du tillate at Launcher installerer apper).
 
 **Pauseskjerm:** for valgte apper vises en nedtelling (standard 10 sek) før «Åpne» dukker opp. Når dagens grense
 for en app er nådd, er nedtellingen tre ganger så lang (minst 30 sek). Gjelder når appen åpnes fra launcheren.
 
 **Varselfilter:** varsler fra valgte apper fjernes fra varsellinjen og samles under «N dempede varsler» på hjemskjermen.
-Trykk for å åpne, hold inne for å fjerne. Pågående varsler (musikk, navigasjon, samtaler, alarmer) slippes gjennom.
+Trykk for å åpne, hold inne for å fjerne. Under «Dempede varsler vises» kan du velge faste klokkeslett
+(f.eks. 12 og 18); da holdes varslene tilbake og kommer samlet på de tidspunktene. Pågående varsler (musikk, navigasjon, samtaler, alarmer) slippes gjennom.
 Android spiller av lyd før launcheren får varselet, så slå også av lyd for appen (Innstillinger → Varsler) hvis det
 skal være helt stille.
 

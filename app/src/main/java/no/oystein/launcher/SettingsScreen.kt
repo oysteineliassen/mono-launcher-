@@ -11,7 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,10 +49,16 @@ fun SettingsScreen(
     val isDefault = remember(resumeCount) { activity.isDefaultLauncher() }
     val hasNotif = remember(resumeCount) { MutedNotifications.hasAccess(activity) }
     val hasUsage = remember(resumeCount) { Usage.hasPermission(activity) }
+    val hasLock = remember(resumeCount) { LockService.isEnabled(activity) }
+    val hasCalendar = remember(resumeCount) { NextEvent.hasCalendarPermission(activity) }
+    var deliveryDialog by remember { mutableStateOf(false) }
+    val update by Updater.state.collectAsState()
 
     fun go(block: suspend () -> Unit) {
         scope.launch { block() }
     }
+
+    if (deliveryDialog) DeliveryDialog(activity, settings) { deliveryDialog = false }
 
     FullScreen {
         Title("Innstillinger", onClose)
@@ -58,6 +68,12 @@ fun SettingsScreen(
                 StatusRow("Standard startskjerm", isDefault) { activity.requestDefaultLauncher() }
                 StatusRow("Varseltilgang (demping)", hasNotif) { activity.startInternal(MutedNotifications.accessIntent(activity)) }
                 StatusRow("Brukstilgang (skjermtid)", hasUsage) { activity.startInternal(Usage.permissionIntent(activity)) }
+                StatusRow("Låsing (tilgjengelighet)", hasLock) {
+                    activity.startInternal(LockService.settingsIntent().addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                if (settings.showNextEvent) {
+                    StatusRow("Kalendertilgang (neste hendelse)", hasCalendar) { activity.requestCalendarPermission() }
+                }
             }
 
             sectionHeader("Hjemskjerm")
@@ -65,6 +81,14 @@ fun SettingsScreen(
                 ToggleRow("24-timers klokke", settings.use24h) { go { e.setUse24h(it) } }
                 ToggleRow("Vis skjermtid i dag", settings.showScreenTime) { go { e.setShowScreenTime(it) } }
                 ToggleRow("Tastatur åpnes i applisten", settings.autoKeyboard) { go { e.setAutoKeyboard(it) } }
+                ToggleRow("Dobbelttrykk for å låse", settings.doubleTapLock) { go { e.setDoubleTapLock(it) } }
+                ToggleRow("Neste hendelse og alarm", settings.showNextEvent) { on ->
+                    go { e.setShowNextEvent(on) }
+                    if (on && !hasCalendar) activity.requestCalendarPermission()
+                }
+            }
+            if (settings.doubleTapLock && !hasLock) {
+                item { Hint("Dobbelttrykk krever at «Launcher» slås på under Tilgjengelighet (se Tilganger).") }
             }
 
             sectionHeader("Snarveier på hjemskjermen")
@@ -127,6 +151,13 @@ fun SettingsScreen(
                 }
             }
 
+            sectionHeader("Dempede varsler vises")
+            item {
+                val text = if (settings.mutedDelivery.isEmpty()) "Med en gang"
+                else "Kl. " + settings.mutedDelivery.joinToString(", ") { formatMinutes(it) }
+                ListRow(text) { TextAction("Endre") { deliveryDialog = true } }
+            }
+
             sectionHeader("Dempede varsler fra")
             if (settings.mutedPackages.isEmpty()) item { Hint("Slås på per app: hold inne på appen.") }
             items(settings.mutedPackages.sortedBy { pkgLabel(it).lowercase() }, key = { "muted:$it" }) { pkg ->
@@ -147,12 +178,33 @@ fun SettingsScreen(
             }
             if (hasUsage) item { Hint("Totalt: ${Usage.format(usage.values.sum())}") }
 
+            sectionHeader("Sikkerhetskopi")
             item {
-                Spacer(Modifier.height(32.dp))
+                ListRow("Lagre oppsettet til en fil") { TextAction("Eksporter") { activity.exportSettings() } }
+                ListRow("Hent oppsett fra en fil") { TextAction("Importer") { activity.importSettings() } }
+                Hint(
+                    "Favoritter, grupper, navn, grenser og innstillinger. Widgetene må legges til på nytt. " +
+                        "Android tar i tillegg automatisk sikkerhetskopi når sikkerhetskopi er slått på i telefonens innstillinger."
+                )
+            }
+
+            sectionHeader("Oppdatering")
+            item {
                 val version = remember {
                     runCatching { activity.packageManager.getPackageInfo(activity.packageName, 0).versionName }.getOrNull()
                 }
-                Text("Launcher ${version ?: ""}", fontSize = 13.sp, color = Faint)
+                ListRow("Denne versjonen: ${version ?: "?"}") {
+                    when (val u = update) {
+                        is Updater.State.Available ->
+                            TextAction("Installer ${u.release.versionName}", color = Color.White) {
+                                activity.lifecycleScope.launch { Updater.install(activity, u.release) }
+                            }
+                        is Updater.State.Downloading, is Updater.State.Installing -> {}
+                        else -> TextAction("Se etter ny") { activity.lifecycleScope.launch { Updater.check(activity, force = true) } }
+                    }
+                }
+                updateText(update)?.let { Hint(it) }
+                if (update == Updater.State.Idle) Hint("Launcheren ser selv etter nye versjoner og sier fra på hjemskjermen.")
                 Spacer(Modifier.height(48.dp))
             }
         }

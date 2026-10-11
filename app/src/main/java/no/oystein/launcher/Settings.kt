@@ -82,7 +82,53 @@ data class AppSettings(
     val autoKeyboard: Boolean = true,
     /** Snarveiene nederst på hjemskjermen, i rekkefølge fra venstre. */
     val shortcuts: List<HomeShortcut> = defaultShortcuts(),
+    /** Dobbelttrykk på tom plass på hjemskjermen låser telefonen. */
+    val doubleTapLock: Boolean = true,
+    /** Neste kalenderhendelse og alarm under datoen. */
+    val showNextEvent: Boolean = false,
+    /**
+     * Klokkeslett (minutter etter midnatt) da dempede varsler vises på hjemskjermen. Tom liste: med en gang.
+     * Ellers holdes varsler tilbake til neste klokkeslett i listen, så de kommer samlet noen ganger om dagen.
+     */
+    val mutedDelivery: List<Int> = emptyList(),
 )
+
+/** Siste leveringstidspunkt for dempede varsler før [now] (millisekunder), eller [Long.MAX_VALUE] hvis alt vises med en gang. */
+fun AppSettings.mutedCutoff(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): Long {
+    if (mutedDelivery.isEmpty()) return Long.MAX_VALUE
+    val zone = java.time.ZoneId.systemDefault()
+    val today = now.toLocalDate()
+    val minutes = now.hour * 60 + now.minute
+    val last = mutedDelivery.sorted().lastOrNull { it <= minutes }
+    val at = if (last != null) {
+        today.atTime(last / 60, last % 60)
+    } else {
+        val m = mutedDelivery.max()
+        today.minusDays(1).atTime(m / 60, m % 60)
+    }
+    return at.atZone(zone).toInstant().toEpochMilli()
+}
+
+/** Neste leveringstidspunkt etter nå, f.eks. «18:00», eller null hvis alt vises med en gang. */
+fun AppSettings.nextMutedDelivery(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): String? {
+    if (mutedDelivery.isEmpty()) return null
+    val minutes = now.hour * 60 + now.minute
+    val next = mutedDelivery.sorted().firstOrNull { it > minutes } ?: mutedDelivery.min()
+    return formatMinutes(next)
+}
+
+fun formatMinutes(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+
+/** «12, 18:30» → [720, 1110]. Ugyldige deler hoppes over. */
+fun parseTimes(text: String): List<Int> = text.split(',', ' ', ';', '\n')
+    .mapNotNull { part ->
+        val t = part.trim().replace('.', ':')
+        if (t.isEmpty()) return@mapNotNull null
+        val (h, m) = t.split(':').let { (it.getOrNull(0)?.toIntOrNull()) to (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        if (h == null || h !in 0..23 || m !in 0..59) null else h * 60 + m
+    }
+    .distinct()
+    .sorted()
 
 /** Snarveier som kan vises nederst på hjemskjermen. */
 enum class ShortcutKind(val label: String) {
@@ -125,6 +171,9 @@ object SettingsKeys {
     val showScreenTime = booleanPreferencesKey("show_screen_time")
     val autoKeyboard = booleanPreferencesKey("auto_keyboard")
     val shortcuts = stringPreferencesKey("shortcuts")
+    val doubleTapLock = booleanPreferencesKey("double_tap_lock")
+    val showNextEvent = booleanPreferencesKey("show_next_event")
+    val mutedDelivery = stringPreferencesKey("muted_delivery")
     const val RENAME_PREFIX = "rename:"
     const val LIMIT_PREFIX = "limit:"
     const val GROUP_PREFIX = "group:"
@@ -163,6 +212,9 @@ fun Preferences.toSettings(): AppSettings {
         showScreenTime = this[SettingsKeys.showScreenTime] ?: true,
         autoKeyboard = this[SettingsKeys.autoKeyboard] ?: true,
         shortcuts = parseShortcuts(this[SettingsKeys.shortcuts]),
+        doubleTapLock = this[SettingsKeys.doubleTapLock] ?: true,
+        showNextEvent = this[SettingsKeys.showNextEvent] ?: false,
+        mutedDelivery = this[SettingsKeys.mutedDelivery]?.split(',')?.mapNotNull { it.toIntOrNull() }?.sorted() ?: emptyList(),
     )
 }
 
@@ -278,6 +330,14 @@ class SettingsEditor(private val context: Context) {
     suspend fun setShowScreenTime(on: Boolean) = edit { it[SettingsKeys.showScreenTime] = on }
 
     suspend fun setAutoKeyboard(on: Boolean) = edit { it[SettingsKeys.autoKeyboard] = on }
+
+    suspend fun setDoubleTapLock(on: Boolean) = edit { it[SettingsKeys.doubleTapLock] = on }
+
+    suspend fun setShowNextEvent(on: Boolean) = edit { it[SettingsKeys.showNextEvent] = on }
+
+    suspend fun setMutedDelivery(times: List<Int>) = edit {
+        if (times.isEmpty()) it.remove(SettingsKeys.mutedDelivery) else it[SettingsKeys.mutedDelivery] = times.joinToString(",")
+    }
 
     private fun MutablePreferences.editShortcuts(block: (MutableList<HomeShortcut>) -> Unit) {
         val list = parseShortcuts(this[SettingsKeys.shortcuts]).toMutableList()

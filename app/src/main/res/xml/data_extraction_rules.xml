@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sikkerhetskopi (Android 12+): innstillingene og dempede varsler, ikke hurtiglageret for applisten. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="apps-cache.tsv" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="apps-cache.tsv" />
+    </device-transfer>
+</data-extraction-rules>
