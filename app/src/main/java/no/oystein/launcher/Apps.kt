@@ -32,6 +32,8 @@ data class AppEntry(
     val isShortcut: Boolean get() = shortcut != null
 }
 
+private const val CACHE_FILE = "apps-cache.tsv"
+
 class AppRepository(private val context: Context) {
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
     private val userManager = context.getSystemService(UserManager::class.java)
@@ -79,6 +81,45 @@ class AppRepository(private val context: Context) {
                 isWorkProfile = work,
                 shortcut = sc,
             )
+        }
+    }
+
+    /**
+     * Sist kjente appliste, lagret på disk, så hjemskjermen kan vises med en gang selv når Android har
+     * avsluttet launcheren (f.eks. om natten). Den ekte listen lastes rett etterpå og erstatter denne.
+     */
+    fun cached(): List<AppEntry> = runCatching {
+        val file = java.io.File(context.filesDir, CACHE_FILE)
+        if (!file.exists()) return emptyList()
+        file.readLines().mapNotNull { line ->
+            val f = line.split('\t')
+            if (f.size < 6) return@mapNotNull null
+            val user = userManager.getUserForSerialNumber(f[3].toLongOrNull() ?: return@mapNotNull null)
+                ?: return@mapNotNull null
+            AppEntry(
+                key = f[0],
+                packageName = f[1],
+                component = ComponentName.unflattenFromString(f[2]) ?: ComponentName(f[1], ""),
+                user = user,
+                originalLabel = f[5],
+                isWorkProfile = f[4] == "1",
+            )
+        }
+    }.getOrDefault(emptyList())
+
+    fun saveCache(apps: List<AppEntry>) {
+        runCatching {
+            val clean = { s: String -> s.replace('\t', ' ').replace('\n', ' ') }
+            val text = apps.joinToString("\n") { a ->
+                listOf(
+                    a.key, a.packageName, a.component.flattenToString(),
+                    userManager.getSerialNumberForUser(a.user).toString(),
+                    if (a.isWorkProfile) "1" else "0", a.originalLabel,
+                ).joinToString("\t") { clean(it) }
+            }
+            val tmp = java.io.File(context.filesDir, "$CACHE_FILE.tmp")
+            tmp.writeText(text)
+            tmp.renameTo(java.io.File(context.filesDir, CACHE_FILE))
         }
     }
 

@@ -208,6 +208,19 @@ tap(await need(/^Avbryt$/, 'Avbryt'));
 await need(/^Oppsett$/, 'tilbake på hjemskjermen');
 console.log('Pauseskjerm OK');
 
+// 4a. Etter at Android har avsluttet launcheren skal favorittene vises med en gang (hurtiglager på disk).
+sh(`adb shell am force-stop ${PKG}`);
+sh('adb logcat -c');
+await home();
+await need(/^Oppsett$/, 'favoritten etter omstart', 8000);
+{
+  const line = sh(`adb logcat -d -s Launcher:D | grep "fra hurtiglager" || true`);
+  console.log(line.trim());
+  const m = line.match(/oppstart: (\d+) apper/);
+  if (!m || Number(m[1]) === 0) fail('applisten ble ikke lest fra hurtiglageret ved oppstart');
+}
+console.log('Omstart OK');
+
 // 4b. Grupper: legg Oppsett i gruppen «System» fra hjemskjermen.
 await favoriteMenu('Oppsett');
 tap(await need(/^Legg i gruppe$/, 'menyvalg gruppe'));

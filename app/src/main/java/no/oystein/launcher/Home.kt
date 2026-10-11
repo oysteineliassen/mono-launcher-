@@ -195,7 +195,7 @@ fun HomePage(
                     .fillMaxWidth()
                     .verticalScroll(favoritesScroll)
             ) {
-                if (favorites.isEmpty()) {
+                if (settings.favorites.isEmpty()) {
                     Text(
                         "Sveip til venstre for apper.\nHold inne på en app for å legge den til her.\nHold inne på tom plass for innstillinger.",
                         fontSize = 15.sp,

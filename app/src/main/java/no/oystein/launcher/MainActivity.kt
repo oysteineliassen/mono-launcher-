@@ -23,9 +23,15 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
     lateinit var apps: AppRepository
+    var initialSettings: AppSettings? = null
+        private set
+    var initialApps: List<AppEntry> = emptyList()
+        private set
         private set
     lateinit var widgets: WidgetController
         private set
@@ -87,6 +93,13 @@ class MainActivity : ComponentActivity() {
         pendingWidgetInfo = widgets.info(pendingWidgetId)
         Log.d(TAG, "onCreate recreated=$recreated pendingWidget=$pendingWidgetId")
         MutedNotifications.init(this)
+        // Innstillinger og sist kjente appliste leses før første bilde, så hjemskjermen ser ferdig ut
+        // med en gang, også når Android har avsluttet launcheren i bakgrunnen.
+        initialSettings = runBlocking {
+            withTimeoutOrNull(1500) { runCatching { settingsFlow().first() }.getOrNull() }
+        }
+        initialApps = apps.cached()
+        Log.d(TAG, "oppstart: ${initialApps.size} apper fra hurtiglager")
         setContent { LauncherApp(this) }
     }
 

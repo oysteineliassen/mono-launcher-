@@ -65,7 +65,7 @@ sealed interface Overlay {
 @Composable
 fun LauncherApp(activity: MainActivity) {
     MaterialTheme(colorScheme = colors) {
-        val settingsOrNull by remember { activity.settingsFlow() }.collectAsState(initial = null)
+        val settingsOrNull by remember { activity.settingsFlow() }.collectAsState(initial = activity.initialSettings)
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             settingsOrNull?.let { LauncherContent(activity, it) }
         }
@@ -77,7 +77,11 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     val scope = rememberCoroutineScope()
     val resumeCount by activity.resumeCount.collectAsState()
     val muted by MutedNotifications.items.collectAsState()
-    var allApps by remember { mutableStateOf(emptyList<AppEntry>()) }
+    // Starter med sist kjente liste (fra disk) til den ekte er lastet.
+    var allApps by remember { mutableStateOf(activity.initialApps) }
+    var appsReady by remember { mutableStateOf(false) }
+    // Trykk på en app før den ekte listen er klar, åpnes så snart den er det.
+    var pendingOpen by remember { mutableStateOf<String?>(null) }
     var usage by remember { mutableStateOf(emptyMap<String, Long>()) }
     var overlay by remember { mutableStateOf<Overlay?>(null) }
     // Til dette tidspunktet holdes widgetsiden fast (se under).
@@ -98,7 +102,10 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     // Applisten lastes ved start og når apper installeres/fjernes.
     LaunchedEffect(Unit) {
         merge(activity.apps.changes(), activity.homeEvents).onStart { emit(Unit) }.collect {
-            allApps = withContext(Dispatchers.Default) { activity.apps.loadApps() }
+            val loaded = withContext(Dispatchers.Default) { activity.apps.loadApps() }
+            allApps = loaded
+            appsReady = true
+            withContext(Dispatchers.IO) { activity.apps.saveCache(loaded) }
         }
     }
     LaunchedEffect(resumeCount, pager.settledPage) {
@@ -144,6 +151,10 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     val sorted = remember(allApps, settings) { allApps.sortedByLabel(settings) }
 
     fun open(app: AppEntry) {
+        if (!appsReady) {
+            pendingOpen = app.key
+            return
+        }
         val limit = settings.limits[app.packageName]
         val used = usage[app.packageName] ?: 0L
         val overLimit = limit != null && used >= limit * 60_000L
@@ -153,6 +164,13 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         } else {
             activity.launchApp(app)
         }
+    }
+
+    LaunchedEffect(appsReady, pendingOpen) {
+        val key = pendingOpen ?: return@LaunchedEffect
+        if (!appsReady) return@LaunchedEffect
+        pendingOpen = null
+        allApps.firstOrNull { it.key == key }?.let { open(it) }
     }
 
     BackHandler {
