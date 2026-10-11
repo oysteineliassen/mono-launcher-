@@ -28,10 +28,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
     lateinit var apps: AppRepository
+        private set
     var initialSettings: AppSettings? = null
         private set
     var initialApps: List<AppEntry> = emptyList()
-        private set
         private set
     lateinit var widgets: WidgetController
         private set
