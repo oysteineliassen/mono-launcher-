@@ -32,26 +32,31 @@ object Usage {
      * Skjermtid i dag per pakke (millisekunder), regnet ut fra hendelsene siden midnatt.
      * queryUsageStats(INTERVAL_DAILY) gir ofte tall for feil periode, derfor brukes hendelsene direkte.
      *
-     * Som Digital Velvære teller vi bare én app i forgrunnen om gangen (en ny app avslutter den
-     * forrige), stopper ved låseskjerm og slukket skjerm, og teller ikke startskjermer eller
-     * systemgrensesnittet. Uten dette ble overlapp og tid bak låseskjermen talt med, og totalen ble
-     * altfor høy.
+     * Som Digital Velvære teller vi tiden appen er synlig, én app om gangen (en ny app avslutter den
+     * forrige), og stopper ved låseskjerm, slukket skjerm og når startskjermen vises. Bytter appen
+     * mellom egne skjermbilder, teller det som sammenhengende bruk: den gamle skjermens «stoppet»
+     * kommer etter at den nye er vist, og skal ikke avslutte tellingen. Et kortvarig «pause» (dialog,
+     * tillatelse o.l.) avslutter heller ikke, bare «stoppet» for skjermbildet som vises.
      */
     fun today(context: Context): Map<String, Long> {
         if (!hasPermission(context)) return emptyMap()
         val usm = context.getSystemService(UsageStatsManager::class.java)
         val start = startOfDay()
         val now = System.currentTimeMillis()
-        val events = usm.queryEvents(start, now) ?: return emptyMap()
+        // Litt før midnatt også, så en app som allerede var åpen ved midnatt telles fra midnatt.
+        val events = usm.queryEvents(start - 3 * 3_600_000L, now) ?: return emptyMap()
         val ignored = ignoredPackages(context)
         val total = HashMap<String, Long>()
         var current: String? = null
+        var currentClass: String? = null
         var since = 0L
 
         fun close(at: Long) {
             val pkg = current ?: return
-            if (at > since) total[pkg] = (total[pkg] ?: 0L) + (at - since)
+            val from = maxOf(since, start)
+            if (at > from) total[pkg] = (total[pkg] ?: 0L) + (at - from)
             current = null
+            currentClass = null
         }
 
         val event = UsageEvents.Event()
@@ -67,11 +72,15 @@ object Usage {
                     } else if (pkg != current) {
                         close(t)
                         current = pkg
+                        currentClass = event.className
                         since = t
+                    } else {
+                        // Nytt skjermbilde i samme app: fortsett tellingen.
+                        currentClass = event.className
                     }
                 }
-                UsageEvents.Event.ACTIVITY_PAUSED,
-                UsageEvents.Event.ACTIVITY_STOPPED -> if (pkg == current) close(t)
+                UsageEvents.Event.ACTIVITY_STOPPED ->
+                    if (pkg == current && event.className == currentClass) close(t)
                 UsageEvents.Event.SCREEN_NON_INTERACTIVE,
                 UsageEvents.Event.KEYGUARD_SHOWN,
                 UsageEvents.Event.DEVICE_SHUTDOWN -> close(t)
