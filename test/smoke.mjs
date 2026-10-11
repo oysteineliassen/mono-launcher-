@@ -304,9 +304,17 @@ const swipeDowns = () => {
 };
 for (const [what, y] of [['over favorittene', pos.Calendar - 40], ['nederst', H * 0.78 | 0]]) {
   const before = swipeDowns();
-  sh(`adb shell input swipe ${W / 2 | 0} ${y} ${W / 2 | 0} ${Math.min(H - 10, y + H * 0.15) | 0} 150`);
-  await sleep(1500);
-  const focus = (() => { try { return sh(`adb shell dumpsys window | grep -m1 mCurrentFocus`); } catch { return ''; } })();
+  const readFocus = () => { try { return sh(`adb shell dumpsys window | grep -m1 mCurrentFocus`); } catch { return ''; } };
+  let focus = '';
+  // Android åpner bare varselpanelet for appen som har fokus. På emulatoren hender det at en annen
+  // startskjerm har fokus et øyeblikk etter omstarten over; da trykkes Hjem og sveipet prøves én gang til.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) { console.log(`Sveip ned ${what}: prøver igjen etter Hjem (${focus.trim()})`); await home(); }
+    sh(`adb shell input swipe ${W / 2 | 0} ${y} ${W / 2 | 0} ${Math.min(H - 10, y + H * 0.15) | 0} 150`);
+    await sleep(1500);
+    focus = readFocus();
+    if (/NotificationShade|StatusBar/i.test(focus)) break;
+  }
   console.log(`Sveip ned ${what}: ${focus}`);
   shot(`5f-varselpanel-${what === 'nederst' ? 'nede' : 'favoritter'}`);
   if (swipeDowns() <= before) fail(`sveip ned ${what} trakk ikke ned varselpanelet`);
