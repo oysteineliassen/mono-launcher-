@@ -161,7 +161,9 @@ fun HomePage(
     // Dempede varsler holdes tilbake til neste leveringstidspunkt hvis det er valgt i innstillingene.
     val mutedCount = remember(muted, settings.mutedDelivery, now) {
         val cutoff = settings.mutedCutoff(now)
-        muted.count { it.time <= cutoff }
+        muted.count { it.time <= cutoff }.also {
+            android.util.Log.d("Launcher", "dempede: viser $it av ${muted.size} (levering ${settings.mutedDelivery})")
+        }
     }
     val nextLines by produceState(emptyList<String>(), settings.showNextEvent, now) {
         value = if (!settings.showNextEvent) emptyList() else withContext(Dispatchers.IO) {

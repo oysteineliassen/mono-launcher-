@@ -83,6 +83,7 @@ object MutedNotifications {
 
     @Synchronized
     fun add(item: MutedItem, intent: PendingIntent?) {
+        android.util.Log.d("Launcher", "dempet: ${item.packageName} «${item.title}»")
         _items.update { list -> (listOf(item) + list.filter { it.key != item.key }).take(MAX) }
         if (intent != null) intents[item.key] = intent else intents.remove(item.key)
         save()

@@ -60,6 +60,7 @@ object Updater {
             .onFailure { Log.d(TAG, "oppdatering: kunne ikke sjekke (${it.message})") }
             .getOrNull()
         if (release == null) {
+            Log.d(TAG, "oppdatering: fant ingen utgivelse")
             if (force) _state.value = State.Failed("Fant ingen oppdatering (ingen nettforbindelse?)")
             return
         }
@@ -74,7 +75,10 @@ object Updater {
             setRequestProperty("Accept", "application/vnd.github+json")
         }
         try {
-            if (conn.responseCode != 200) return null
+            if (conn.responseCode != 200) {
+                Log.d(TAG, "oppdatering: GitHub svarte ${conn.responseCode}")
+                return null
+            }
             val json = JSONObject(conn.inputStream.bufferedReader().readText())
             val tag = json.optString("tag_name") // launcher-v1.0.N
             val code = tag.substringAfterLast('.').toIntOrNull() ?: return null
