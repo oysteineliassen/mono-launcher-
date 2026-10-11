@@ -42,7 +42,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.provider.AlarmClock
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -81,13 +90,42 @@ import java.util.Locale
 
 private val norsk = Locale("nb", "NO")
 
+/**
+ * Klokkeslettet nå, oppdatert hvert minutt. Android sender ACTION_TIME_TICK på hvert minuttskifte
+ * mens skjermen er på; i tillegg oppdateres det når launcheren vises igjen og når tiden/tidssonen endres.
+ * (En ren ventetråd henger etter etter at telefonen har sovet, fordi den bare teller våken tid.)
+ */
 @Composable
 private fun rememberNow(): LocalDateTime {
-    val now by produceState(LocalDateTime.now()) {
-        while (true) {
-            value = LocalDateTime.now()
-            // Vent til neste hele minutt (litt over, så vi ikke havner før).
-            delay(60_000L - (System.currentTimeMillis() % 60_000L) + 50L)
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    val context = LocalContext.current
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) { now = LocalDateTime.now() }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        context.registerReceiver(receiver, filter)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    LifecycleResumeEffect(Unit) {
+        now = LocalDateTime.now()
+        onPauseOrDispose { }
+    }
+    // Reserve i tilfelle et minuttskifte ikke kommer: sjekk hvert sekund, men bare mens launcheren vises.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                val t = LocalDateTime.now()
+                if (t.minute != now.minute || t.hour != now.hour || t.toLocalDate() != now.toLocalDate()) now = t
+                delay(1000L - (System.currentTimeMillis() % 1000L) + 20L)
+            }
         }
     }
     return now
