@@ -20,6 +20,7 @@
         <activity
             android:name=".MainActivity"
             android:clearTaskOnLaunch="true"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
             android:excludeFromRecents="true"
             android:exported="true"
