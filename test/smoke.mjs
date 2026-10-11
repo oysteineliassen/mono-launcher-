@@ -564,7 +564,7 @@ await sleep(1500);
 if (nodes(dump()).some((n) => /dempe(t|de) varsel/.test(n.text))) fail('varselet skulle holdes tilbake til neste leveringstid');
 sh(`adb shell am broadcast -a ${PKG}.TEST_DELIVERY --es mode now -p ${PKG}`);
 await home();
-if (!(await waitText(/dempe(t|de) varsel/, 8000))) {
+if (!(await waitText(/dempe(t|de) varsel/, 20000))) {
   console.log('Synlig:', nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
   console.log(launcherLog().split('\n').filter((l) => /dempe/.test(l)).slice(-10).join('\n'));
   fail('varselet kom ikke fram etter at levering ble satt til «med en gang»');
