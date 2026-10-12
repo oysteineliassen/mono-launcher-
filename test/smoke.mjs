@@ -13,6 +13,7 @@ function fail(msg) {
   shot('feil');
   process.exit(1);
 }
+const launcherLog = () => { try { return sh(`adb logcat -d -s Launcher:D`); } catch { return ''; } };
 function shot(name) {
   try { sh(`adb shell screencap -p /sdcard/s.png && adb pull /sdcard/s.png skjerm-${name}.png`); } catch {}
 }
@@ -532,7 +533,7 @@ async function toggleSetting(label, expect) {
   longPress({ x: W / 2 | 0, y: H * 0.75 | 0 });
   await need(/^Innstillinger$/, 'innstillinger');
   let row = null;
-  for (let i = 0; i < 4 && !row; i++) {
+  for (let i = 0; i < 10 && !row; i++) {
     row = nodes(dump()).find((n) => n.text === label);
     if (!row) { sh(`adb shell input swipe ${W / 2 | 0} ${H * 0.7 | 0} ${W / 2 | 0} ${H * 0.45 | 0} 400`); await sleep(800); }
   }
@@ -566,6 +567,63 @@ await sleep(800);
 await home();
 console.log('Widgetsiden på igjen OK');
 
+// 6c. Notat på hjemskjermen.
+await home();
+longPress({ x: W / 2 | 0, y: H * 0.75 | 0 });
+await need(/^Innstillinger$/, 'innstillinger');
+{
+  let row = null;
+  for (let i = 0; i < 4 && !row; i++) {
+    row = nodes(dump()).find((n) => n.text === 'Notat: ingen');
+    if (!row) { sh(`adb shell input swipe ${W / 2 | 0} ${H * 0.7 | 0} ${W / 2 | 0} ${H * 0.45 | 0} 400`); await sleep(800); }
+  }
+  if (!row) fail('fant ikke «Notat: ingen» i innstillingene');
+  const write = nodes(dump()).find((n) => n.text === 'Skriv' && Math.abs(n.y - row.y) < 30);
+  if (!write) fail('fant ikke «Skriv» for notatet');
+  tap(write);
+  await sleep(1200);
+  sh('adb shell input text "Husk%smelk"');
+  tap(await need(/^Lagre$/, 'Lagre notat'));
+  await sleep(800);
+}
+await home();
+await need(/^Husk melk$/, 'notatet på hjemskjermen');
+shot('8c-notat');
+console.log('Notat OK');
+
+// 6d. Antall åpninger ved siden av skjermtiden.
+{
+  const line = await waitText(/^Skjermtid i dag: .* · \d+ åpning(er)?$/, 8000);
+  console.log('Skjermtid-linje:', line ? line.text : '(mangler)');
+  if (!line) fail('antall åpninger vises ikke ved skjermtiden');
+}
+console.log('Åpninger OK');
+
+// 6e. Skjul statuslinjen på hjemskjermen.
+await toggleSetting('Skjul statuslinjen', 'på');
+await sleep(1500);
+{
+  const last = launcherLog().split('\n').filter((l) => l.includes('statuslinje ')).pop() || '';
+  console.log('Statuslinje:', last.trim());
+  if (!/statuslinje skjult/.test(last)) fail('statuslinjen ble ikke skjult på hjemskjermen');
+}
+await toggleSetting('Skjul statuslinjen', 'av');
+console.log('Skjul statuslinje OK');
+
+// 6f. Gråtoner (tillatelsen gis med adb, som brukeren gjør én gang).
+sh(`adb shell pm grant ${PKG} android.permission.WRITE_SECURE_SETTINGS`);
+const daltonizer = () => sh('adb shell settings get secure accessibility_display_daltonizer_enabled').trim();
+await toggleSetting('Gråtoner nå', 'på');
+await sleep(1000);
+console.log('Gråtoner på:', daltonizer());
+if (daltonizer() !== '1') fail('gråtoner ble ikke slått på');
+shot('8d-graatoner');
+await toggleSetting('Gråtoner nå', 'av');
+await sleep(1000);
+console.log('Gråtoner av:', daltonizer());
+if (daltonizer() !== '0') fail('gråtoner ble ikke slått av');
+console.log('Gråtoner OK');
+
 // 7. Varselfilter: demp varsler fra Shell (det er den som poster varsler fra adb).
 await sleep(1500);
 sh(`adb shell am broadcast -a ${PKG}.TEST_MUTE --es pkg com.android.shell -p ${PKG} || true`);
@@ -584,7 +642,6 @@ shot('10-varselliste');
 console.log('Varselfilter OK');
 
 // 7b. Dempede varsler på faste tider: med neste levering om to timer skal nye varsler holdes tilbake.
-const launcherLog = () => { try { return sh(`adb logcat -d -s Launcher:D`); } catch { return ''; } };
 sh(`adb shell am broadcast -a ${PKG}.TEST_DELIVERY --es mode later -p ${PKG}`);
 await sleep(1000);
 MutedClear: {

@@ -84,6 +84,14 @@ data class AppSettings(
     val shortcuts: List<HomeShortcut> = defaultShortcuts(),
     /** Widgetsiden (sveip til høyre). Når den er av, ligger widgetene lagret til den slås på igjen. */
     val widgetPage: Boolean = true,
+    /** Gråtoner på hele telefonen (manuelt). */
+    val grayscale: Boolean = false,
+    /** Gråtoner automatisk mellom to klokkeslett (minutter etter midnatt), f.eks. 21:00–07:00. */
+    val grayscaleAuto: Pair<Int, Int>? = null,
+    /** Et kort notat som vises på hjemskjermen. */
+    val homeNote: String = "",
+    /** Skjul statuslinjen mens hjemskjermen vises. */
+    val hideStatusBar: Boolean = false,
     /** Dobbelttrykk på tom plass på hjemskjermen låser telefonen. */
     val doubleTapLock: Boolean = true,
     /** Neste kalenderhendelse og alarm under datoen. */
@@ -175,6 +183,10 @@ object SettingsKeys {
     val shortcuts = stringPreferencesKey("shortcuts")
     val doubleTapLock = booleanPreferencesKey("double_tap_lock")
     val widgetPage = booleanPreferencesKey("widget_page")
+    val grayscale = booleanPreferencesKey("grayscale")
+    val grayscaleAuto = stringPreferencesKey("grayscale_auto")
+    val homeNote = stringPreferencesKey("home_note")
+    val hideStatusBar = booleanPreferencesKey("hide_status_bar")
     val showNextEvent = booleanPreferencesKey("show_next_event")
     val mutedDelivery = stringPreferencesKey("muted_delivery")
     const val RENAME_PREFIX = "rename:"
@@ -217,6 +229,11 @@ fun Preferences.toSettings(): AppSettings {
         shortcuts = parseShortcuts(this[SettingsKeys.shortcuts]),
         doubleTapLock = this[SettingsKeys.doubleTapLock] ?: true,
         widgetPage = this[SettingsKeys.widgetPage] ?: true,
+        grayscale = this[SettingsKeys.grayscale] ?: false,
+        grayscaleAuto = this[SettingsKeys.grayscaleAuto]?.split(',')?.mapNotNull { it.toIntOrNull() }
+            ?.takeIf { it.size == 2 }?.let { it[0] to it[1] },
+        homeNote = this[SettingsKeys.homeNote] ?: "",
+        hideStatusBar = this[SettingsKeys.hideStatusBar] ?: false,
         showNextEvent = this[SettingsKeys.showNextEvent] ?: false,
         mutedDelivery = this[SettingsKeys.mutedDelivery]?.split(',')?.mapNotNull { it.toIntOrNull() }?.sorted() ?: emptyList(),
     )
@@ -334,6 +351,19 @@ class SettingsEditor(private val context: Context) {
     suspend fun setShowScreenTime(on: Boolean) = edit { it[SettingsKeys.showScreenTime] = on }
 
     suspend fun setAutoKeyboard(on: Boolean) = edit { it[SettingsKeys.autoKeyboard] = on }
+
+    suspend fun setGrayscale(on: Boolean) = edit { it[SettingsKeys.grayscale] = on }
+
+    suspend fun setGrayscaleAuto(range: Pair<Int, Int>?) = edit {
+        if (range == null) it.remove(SettingsKeys.grayscaleAuto) else it[SettingsKeys.grayscaleAuto] = "${range.first},${range.second}"
+    }
+
+    suspend fun setHomeNote(text: String) = edit {
+        val t = text.trim()
+        if (t.isEmpty()) it.remove(SettingsKeys.homeNote) else it[SettingsKeys.homeNote] = t
+    }
+
+    suspend fun setHideStatusBar(on: Boolean) = edit { it[SettingsKeys.hideStatusBar] = on }
 
     suspend fun setWidgetPage(on: Boolean) = edit { it[SettingsKeys.widgetPage] = on }
 

@@ -33,7 +33,9 @@ fun SettingsScreen(
     settings: AppSettings,
     apps: List<AppEntry>,
     usage: Map<String, Long>,
+    opens: Map<String, Int>,
     resumeCount: Int,
+    onNote: () -> Unit,
     onPickWidget: () -> Unit,
     onRenameGroup: (String) -> Unit,
     onClose: () -> Unit,
@@ -52,6 +54,8 @@ fun SettingsScreen(
     val hasLock = remember(resumeCount) { LockService.isEnabled(activity) }
     val hasCalendar = remember(resumeCount) { NextEvent.hasCalendarPermission(activity) }
     var deliveryDialog by remember { mutableStateOf(false) }
+    var grayscaleDialog by remember { mutableStateOf(false) }
+    val hasGrayscale = remember(resumeCount) { Grayscale.hasPermission(activity) }
     val update by Updater.state.collectAsState()
 
     fun go(block: suspend () -> Unit) {
@@ -59,6 +63,7 @@ fun SettingsScreen(
     }
 
     if (deliveryDialog) DeliveryDialog(activity, settings) { deliveryDialog = false }
+    if (grayscaleDialog) GrayscaleDialog(activity, settings) { grayscaleDialog = false }
 
     FullScreen {
         Title("Innstillinger", onClose)
@@ -81,6 +86,10 @@ fun SettingsScreen(
                 ToggleRow("24-timers klokke", settings.use24h) { go { e.setUse24h(it) } }
                 ToggleRow("Vis skjermtid i dag", settings.showScreenTime) { go { e.setShowScreenTime(it) } }
                 ToggleRow("Tastatur åpnes i applisten", settings.autoKeyboard) { go { e.setAutoKeyboard(it) } }
+                ToggleRow("Skjul statuslinjen", settings.hideStatusBar) { go { e.setHideStatusBar(it) } }
+                ListRow(if (settings.homeNote.isBlank()) "Notat: ingen" else "Notat: ${settings.homeNote}") {
+                    TextAction(if (settings.homeNote.isBlank()) "Skriv" else "Endre", onClick = onNote)
+                }
                 ToggleRow("Widgetsiden (sveip til høyre)", settings.widgetPage) { go { e.setWidgetPage(it) } }
                 ToggleRow("Dobbelttrykk for å låse", settings.doubleTapLock) { go { e.setDoubleTapLock(it) } }
                 ToggleRow("Neste hendelse og alarm", settings.showNextEvent) { on ->
@@ -152,6 +161,30 @@ fun SettingsScreen(
                 }
             }
 
+            sectionHeader("Gråtoner")
+            if (!hasGrayscale) {
+                item {
+                    Hint(
+                        "Android krever at gråtoner slås på fra en datamaskin én gang. Koble telefonen til med USB " +
+                            "(USB-feilsøking på) og kjør:"
+                    )
+                    Text(Grayscale.ADB_COMMAND, fontSize = 13.sp, color = Dim, modifier = Modifier.padding(vertical = 4.dp))
+                }
+            } else {
+                item {
+                    ToggleRow("Gråtoner nå", settings.grayscale) { on ->
+                        go {
+                            e.setGrayscale(on)
+                            Grayscale.apply(activity, Grayscale.wanted(settings.copy(grayscale = on)))
+                        }
+                    }
+                    val auto = settings.grayscaleAuto
+                    ListRow(if (auto == null) "Automatisk: av" else "Automatisk: ${formatMinutes(auto.first)}–${formatMinutes(auto.second)}") {
+                        TextAction("Endre") { grayscaleDialog = true }
+                    }
+                }
+            }
+
             sectionHeader("Dempede varsler vises")
             item {
                 val text = if (settings.mutedDelivery.isEmpty()) "Med en gang"
@@ -175,9 +208,12 @@ fun SettingsScreen(
             if (!hasUsage) item { Hint("Krever brukstilgang (se over).") }
             val top = usage.entries.filter { it.value >= 60_000L }.sortedByDescending { it.value }.take(20)
             items(top, key = { "usage:${it.key}" }) { (pkg, ms) ->
-                ListRow(pkgLabel(pkg)) { Text(Usage.format(ms), fontSize = 15.sp, color = Dim) }
+                val n = opens[pkg] ?: 0
+                ListRow(pkgLabel(pkg)) {
+                    Text(Usage.format(ms) + if (n > 0) " · $n×" else "", fontSize = 15.sp, color = Dim)
+                }
             }
-            if (hasUsage) item { Hint("Totalt: ${Usage.format(usage.values.sum())}") }
+            if (hasUsage) item { Hint("Totalt: ${Usage.format(usage.values.sum())} · ${opens.values.sum()} åpninger") }
 
             sectionHeader("Sikkerhetskopi")
             item {

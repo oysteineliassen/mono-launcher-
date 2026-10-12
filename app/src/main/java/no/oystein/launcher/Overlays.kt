@@ -398,3 +398,101 @@ fun DeliveryDialog(activity: MainActivity, settings: AppSettings, onClose: () ->
     }
     LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
 }
+
+/** Kort notat på hjemskjermen. Tomt notat fjerner det. */
+@Composable
+fun NoteDialog(activity: MainActivity, settings: AppSettings, onClose: () -> Unit) {
+    // Lagring må overleve at dialogen lukkes, derfor aktivitetens scope.
+    val scope = activity.lifecycleScope
+    var text by remember { mutableStateOf(settings.homeNote) }
+    val fr = remember { FocusRequester() }
+    fun save(t: String) {
+        scope.launch { activity.editor.setHomeNote(t) }
+        onClose()
+    }
+    TextDialog(onClose) {
+        Text("Notat på hjemskjermen", fontSize = 22.sp, fontWeight = FontWeight.Light, color = Color.White)
+        Spacer(Modifier.height(16.dp))
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it.take(200) },
+            textStyle = TextStyle(color = Color.White, fontSize = 20.sp),
+            cursorBrush = SolidColor(Color.White),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { save(text) }),
+            modifier = Modifier.fillMaxWidth().focusRequester(fr).testTag("notefield"),
+        )
+        HorizontalDivider(color = Faint)
+        Spacer(Modifier.height(8.dp))
+        Row {
+            TextAction("Lagre", color = Color.White) { save(text) }
+            Spacer(Modifier.width(16.dp))
+            TextAction("Fjern") { save("") }
+            Spacer(Modifier.width(16.dp))
+            TextAction("Avbryt", onClick = onClose)
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+}
+
+/** «21-7», «21:00–07:00» eller «21 til 7» → (1260, 420). Null hvis det ikke er to gyldige klokkeslett. */
+fun parseRange(text: String): Pair<Int, Int>? {
+    val parts = text.replace("til", "-").split('-', '–', ' ').filter { it.isNotBlank() }
+    if (parts.size != 2) return null
+    val times = parts.map { p ->
+        val t = p.trim().replace('.', ':')
+        val h = t.substringBefore(':').toIntOrNull() ?: return null
+        val m = if (':' in t) t.substringAfter(':').toIntOrNull() ?: return null else 0
+        if (h !in 0..23 || m !in 0..59) return null
+        h * 60 + m
+    }
+    return if (times[0] == times[1]) null else times[0] to times[1]
+}
+
+/** Når gråtoner skal slås på automatisk, f.eks. 21–7. */
+@Composable
+fun GrayscaleDialog(activity: MainActivity, settings: AppSettings, onClose: () -> Unit) {
+    val scope = activity.lifecycleScope
+    var text by remember {
+        mutableStateOf(settings.grayscaleAuto?.let { "${formatMinutes(it.first)}–${formatMinutes(it.second)}" } ?: "21–07")
+    }
+    var error by remember { mutableStateOf(false) }
+    val fr = remember { FocusRequester() }
+    fun save(range: Pair<Int, Int>?) {
+        scope.launch {
+            activity.editor.setGrayscaleAuto(range)
+            Grayscale.apply(activity, Grayscale.wanted(settings.copy(grayscaleAuto = range)))
+        }
+        onClose()
+    }
+    fun trySave() {
+        val r = parseRange(text)
+        if (r == null) error = true else save(r)
+    }
+    TextDialog(onClose) {
+        Text("Gråtoner automatisk", fontSize = 22.sp, fontWeight = FontWeight.Light, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text("Fra–til, f.eks. «21–07». Kan gå over midnatt.", fontSize = 14.sp, color = if (error) Color.White else Dim)
+        Spacer(Modifier.height(16.dp))
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it; error = false },
+            singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontSize = 20.sp),
+            cursorBrush = SolidColor(Color.White),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { trySave() }),
+            modifier = Modifier.fillMaxWidth().focusRequester(fr).testTag("grayscalerange"),
+        )
+        HorizontalDivider(color = Faint)
+        Spacer(Modifier.height(8.dp))
+        Row {
+            TextAction("Lagre", color = Color.White) { trySave() }
+            Spacer(Modifier.width(16.dp))
+            TextAction("Av") { save(null) }
+            Spacer(Modifier.width(16.dp))
+            TextAction("Avbryt", onClick = onClose)
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+}

@@ -13,6 +13,11 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 
 - **Widgetsiden** kan slås av under Innstillinger → Hjemskjerm. Widgetene beholdes og ligger på samme plass når
   den slås på igjen.
+- **Notat:** en kort linje på hjemskjermen (Innstillinger → Hjemskjerm → Notat). Trykk på notatet for å endre det.
+- **Skjul statuslinjen** på hjemskjermen (Innstillinger → Hjemskjerm).
+- **Gråtoner** for hele telefonen, nå eller automatisk mellom to klokkeslett (f.eks. 21–07). Krever én gang:
+  `adb shell pm grant no.oystein.launcher android.permission.WRITE_SECURE_SETTINGS`
+- **Åpninger:** skjermtidslinjen viser også hvor mange ganger apper er åpnet i dag (per app i innstillingene).
 - **Hold inne på en app i applisten:** legg til/fjern på hjemskjermen, endre navn, skjul, pauseskjerm, daglig grense,
   demp varsler, appinfo, avinstaller.
 - **Sortere hjemskjermen:** hold inne på en app på hjemskjermen og dra den opp eller ned (den uthevs mens du holder).

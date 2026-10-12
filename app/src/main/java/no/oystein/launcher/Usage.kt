@@ -38,15 +38,27 @@ object Usage {
      * kommer etter at den nye er vist, og skal ikke avslutte tellingen. Et kortvarig «pause» (dialog,
      * tillatelse o.l.) avslutter heller ikke, bare «stoppet» for skjermbildet som vises.
      */
-    fun today(context: Context): Map<String, Long> {
-        if (!hasPermission(context)) return emptyMap()
+    fun today(context: Context): Map<String, Long> = todayStats(context).time
+
+    /** Skjermtid (ms) og antall åpninger per pakke i dag. */
+    data class Stats(val time: Map<String, Long>, val opens: Map<String, Int>) {
+        val totalOpens: Int get() = opens.values.sum()
+    }
+
+    /**
+     * Som [today], men teller også åpninger: hver gang en app kommer fram på skjermen fra noe annet
+     * (startskjermen, en annen app, låseskjermen). Bytte mellom skjermbilder i samme app teller ikke.
+     */
+    fun todayStats(context: Context): Stats {
+        if (!hasPermission(context)) return Stats(emptyMap(), emptyMap())
         val usm = context.getSystemService(UsageStatsManager::class.java)
         val start = startOfDay()
         val now = System.currentTimeMillis()
         // Litt før midnatt også, så en app som allerede var åpen ved midnatt telles fra midnatt.
-        val events = usm.queryEvents(start - 3 * 3_600_000L, now) ?: return emptyMap()
+        val events = usm.queryEvents(start - 3 * 3_600_000L, now) ?: return Stats(emptyMap(), emptyMap())
         val ignored = ignoredPackages(context)
         val total = HashMap<String, Long>()
+        val opens = HashMap<String, Int>()
         var current: String? = null
         var currentClass: String? = null
         var since = 0L
@@ -74,6 +86,7 @@ object Usage {
                         current = pkg
                         currentClass = event.className
                         since = t
+                        if (t >= start) opens[pkg] = (opens[pkg] ?: 0) + 1
                     } else {
                         // Nytt skjermbilde i samme app: fortsett tellingen.
                         currentClass = event.className
@@ -87,7 +100,7 @@ object Usage {
             }
         }
         close(now)
-        return total
+        return Stats(total, opens)
     }
 
     /** Startskjermer (også denne), systemgrensesnittet og tastaturer telles ikke som skjermtid. */

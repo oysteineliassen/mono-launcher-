@@ -55,6 +55,7 @@ sealed interface Overlay {
     data object Settings : Overlay
     data object Notifications : Overlay
     data object WidgetPicker : Overlay
+    data object Note : Overlay
     data class AppMenu(val app: AppEntry) : Overlay
     data class Rename(val app: AppEntry) : Overlay
     data class Limit(val app: AppEntry) : Overlay
@@ -85,6 +86,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     // Trykk på en app før den ekte listen er klar, åpnes så snart den er det.
     var pendingOpen by remember { mutableStateOf<String?>(null) }
     var usage by remember { mutableStateOf(emptyMap<String, Long>()) }
+    var opens by remember { mutableStateOf(emptyMap<String, Int>()) }
     var overlay by remember { mutableStateOf<Overlay?>(null) }
     // Til dette tidspunktet holdes widgetsiden fast (se under).
     var pinWidgetPageUntil by remember { mutableLongStateOf(0L) }
@@ -121,7 +123,9 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     // Ny versjon på GitHub? Sjekkes når launcheren vises (høyst hver tredje time).
     LaunchedEffect(resumeCount) { Updater.check(activity) }
     LaunchedEffect(resumeCount, settledPage) {
-        usage = withContext(Dispatchers.Default) { Usage.today(activity) }
+        val stats = withContext(Dispatchers.Default) { Usage.todayStats(activity) }
+        usage = stats.time
+        opens = stats.opens
     }
     LaunchedEffect(Unit) {
         activity.homeEvents.collect {
@@ -135,6 +139,26 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             focus.clearFocus()
             pager.scrollToPage(PAGE_HOME - firstPageState.value)
         }
+    }
+
+    // Gråtoner: følg bryteren og kveldstiden (sjekkes når launcheren vises og hvert minutt den er synlig).
+    LaunchedEffect(settings.grayscale, settings.grayscaleAuto, resumeCount) {
+        while (true) {
+            withContext(Dispatchers.IO) { Grayscale.sync(activity, settings) }
+            kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L + 200L)
+        }
+    }
+    // Statuslinjen skjules mens hjemskjermen vises (sveip ned fra toppen viser den en kort stund).
+    val hideBar = settings.hideStatusBar && settledPage == PAGE_HOME && overlay == null
+    LaunchedEffect(hideBar, resumeCount) {
+        val controller = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (hideBar) {
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        } else {
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        }
+        android.util.Log.d("Launcher", "statuslinje ${if (hideBar) "skjult" else "vist"}")
     }
 
     LaunchedEffect(settledPage) {
@@ -216,6 +240,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 settings = settings,
                 apps = allApps,
                 usage = usage,
+                opens = opens,
                 muted = muted,
                 expanded = expanded,
                 onToggleGroup = ::toggleGroup,
@@ -224,6 +249,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 onMenu = { overlay = Overlay.AppMenu(it) },
                 onSettings = { overlay = Overlay.Settings },
                 onNotifications = { overlay = Overlay.Notifications },
+                onNote = { overlay = Overlay.Note },
                 editing = homeEditing,
                 onEditingChange = { homeEditing = it },
             )
@@ -254,11 +280,14 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             settings = settings,
             apps = sorted,
             usage = usage,
+            opens = opens,
             resumeCount = resumeCount,
+            onNote = { overlay = Overlay.Note },
             onPickWidget = { overlay = Overlay.WidgetPicker },
             onRenameGroup = { overlay = Overlay.RenameGroup(it) },
             onClose = { overlay = null },
         )
+        Overlay.Note -> NoteDialog(activity, settings) { overlay = null }
         Overlay.Notifications -> NotificationsScreen(
             activity = activity,
             items = remember(muted, settings.mutedDelivery, resumeCount) {

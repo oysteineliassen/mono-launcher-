@@ -142,6 +142,7 @@ fun HomePage(
     settings: AppSettings,
     apps: List<AppEntry>,
     usage: Map<String, Long>,
+    opens: Map<String, Int>,
     muted: List<MutedItem>,
     expanded: Set<String>,
     onToggleGroup: (String) -> Unit,
@@ -150,6 +151,7 @@ fun HomePage(
     onMenu: (AppEntry) -> Unit,
     onSettings: () -> Unit,
     onNotifications: () -> Unit,
+    onNote: () -> Unit,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
 ) {
@@ -251,8 +253,10 @@ fun HomePage(
             }
             if (settings.showScreenTime && usage.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
+                val openCount = opens.values.sum()
                 Text(
-                    "Skjermtid i dag: ${Usage.format(usage.values.sum())}",
+                    "Skjermtid i dag: ${Usage.format(usage.values.sum())}" +
+                        if (openCount > 0) " · $openCount ${if (openCount == 1) "åpning" else "åpninger"}" else "",
                     fontSize = 15.sp,
                     color = Faint,
                 )
@@ -269,6 +273,21 @@ fun HomePage(
                 )
             }
 
+            if (settings.homeNote.isNotBlank()) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    settings.homeNote,
+                    fontSize = 17.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Light,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .combinedClickable(onClick = onNote)
+                        .padding(vertical = 4.dp)
+                        .testTag("note"),
+                )
+            }
             updateText(update, onHome = true)?.let { text ->
                 Spacer(Modifier.height(8.dp))
                 Text(
