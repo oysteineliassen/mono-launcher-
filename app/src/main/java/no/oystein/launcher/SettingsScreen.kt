@@ -81,6 +81,7 @@ fun SettingsScreen(
                 ToggleRow("24-timers klokke", settings.use24h) { go { e.setUse24h(it) } }
                 ToggleRow("Vis skjermtid i dag", settings.showScreenTime) { go { e.setShowScreenTime(it) } }
                 ToggleRow("Tastatur åpnes i applisten", settings.autoKeyboard) { go { e.setAutoKeyboard(it) } }
+                ToggleRow("Widgetsiden (sveip til høyre)", settings.widgetPage) { go { e.setWidgetPage(it) } }
                 ToggleRow("Dobbelttrykk for å låse", settings.doubleTapLock) { go { e.setDoubleTapLock(it) } }
                 ToggleRow("Neste hendelse og alarm", settings.showNextEvent) { on ->
                     go { e.setShowNextEvent(on) }
@@ -123,7 +124,7 @@ fun SettingsScreen(
                 }
             }
 
-            sectionHeader("Widgeter (sveip til høyre)")
+            sectionHeader(if (settings.widgetPage) "Widgeter (sveip til høyre)" else "Widgeter (widgetsiden er av)")
             items(settings.widgets, key = { "widget:${it.id}" }) { w ->
                 val label = remember(w.id) { activity.widgets.info(w.id)?.let { activity.widgets.label(it) } ?: "Ukjent widget" }
                 ListRow(label) { TextAction("Fjern") { activity.removeWidget(w.id) } }

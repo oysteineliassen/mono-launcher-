@@ -11,6 +11,8 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 | Til venstre | **Appliste** med søk. Enter/«Gå» åpner første treff. Dra fingeren langs bokstavene til høyre for å hoppe til en forbokstav. Tannhjulet oppe til høyre åpner innstillingene |
 | Til høyre | **Widgeter** i et rutenett med 4 kolonner, redigert som på iPhone: **hold fingeren inne** for å redigere (widgetene vrikker). Dra en widget for å flytte den, hjørnet ◢ for å endre størrelse, og − for å fjerne. «+ Legg til» åpner et panel nedenfra med søk og forhåndsvisning av alle widgeter. «Ferdig» avslutter |
 
+- **Widgetsiden** kan slås av under Innstillinger → Hjemskjerm. Widgetene beholdes og ligger på samme plass når
+  den slås på igjen.
 - **Hold inne på en app i applisten:** legg til/fjern på hjemskjermen, endre navn, skjul, pauseskjerm, daglig grense,
   demp varsler, appinfo, avinstaller.
 - **Sortere hjemskjermen:** hold inne på en app på hjemskjermen og dra den opp eller ned (den uthevs mens du holder).

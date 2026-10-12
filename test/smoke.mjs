@@ -526,6 +526,46 @@ await needDesc('Telefon');
 if (nodes(dump()).some((n) => n.desc === 'Meldinger')) fail('«Meldinger» vises fortsatt på hjemskjermen');
 console.log('Innstillinger og snarveier OK');
 
+// 6b. Widgetsiden av og på: widgetene skal ligge der som før når den slås på igjen.
+async function toggleSetting(label, expect) {
+  await home();
+  longPress({ x: W / 2 | 0, y: H * 0.75 | 0 });
+  await need(/^Innstillinger$/, 'innstillinger');
+  let row = null;
+  for (let i = 0; i < 4 && !row; i++) {
+    row = nodes(dump()).find((n) => n.text === label);
+    if (!row) { sh(`adb shell input swipe ${W / 2 | 0} ${H * 0.7 | 0} ${W / 2 | 0} ${H * 0.45 | 0} 400`); await sleep(800); }
+  }
+  if (!row) fail(`fant ikke «${label}» i innstillingene`);
+  const t = nodes(dump()).find((n) => /^(på|av)$/.test(n.text) && Math.abs(n.y - row.y) < 30);
+  if (!t) fail(`fant ikke av/på for «${label}»`);
+  tap(t);
+  await sleep(1200);
+  const now = nodes(dump()).find((n) => /^(på|av)$/.test(n.text) && Math.abs(n.y - row.y) < 30);
+  if (!now || now.text !== expect) fail(`«${label}» ble ikke ${expect}`);
+  await home();
+}
+await toggleSetting('Widgetsiden (sveip til høyre)', 'av');
+swipeRight();
+await sleep(1500);
+if (await waitText(/^(Legg til widget|Rediger|\+ Legg til)$/, 2000)) fail('widgetsiden vises selv om den er slått av');
+await need(/^\d{1,2}:\d{2}$/, 'hjemskjermen etter sveip til høyre (widgetsiden av)');
+swipeLeft();
+await need(/^Innstillinger$|^Settings$|^Chrome$|^Clock$|^Calendar$/, 'applisten med widgetsiden av');
+console.log('Widgetsiden av OK');
+await toggleSetting('Widgetsiden (sveip til høyre)', 'på');
+swipeRight();
+await sleep(1500);
+await enterEdit();
+await sleep(800);
+{
+  const n = nodes(dump()).filter((n) => n.desc === 'Fjern').length;
+  console.log('Widgeter etter at widgetsiden ble slått på igjen:', n);
+  if (n < 2) fail(`widgetene forsvant da widgetsiden ble slått av og på (${n} igjen)`);
+}
+await home();
+console.log('Widgetsiden på igjen OK');
+
 // 7. Varselfilter: demp varsler fra Shell (det er den som poster varsler fra adb).
 await sleep(1500);
 sh(`adb shell am broadcast -a ${PKG}.TEST_MUTE --es pkg com.android.shell -p ${PKG} || true`);

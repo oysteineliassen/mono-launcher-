@@ -82,6 +82,8 @@ data class AppSettings(
     val autoKeyboard: Boolean = true,
     /** Snarveiene nederst på hjemskjermen, i rekkefølge fra venstre. */
     val shortcuts: List<HomeShortcut> = defaultShortcuts(),
+    /** Widgetsiden (sveip til høyre). Når den er av, ligger widgetene lagret til den slås på igjen. */
+    val widgetPage: Boolean = true,
     /** Dobbelttrykk på tom plass på hjemskjermen låser telefonen. */
     val doubleTapLock: Boolean = true,
     /** Neste kalenderhendelse og alarm under datoen. */
@@ -172,6 +174,7 @@ object SettingsKeys {
     val autoKeyboard = booleanPreferencesKey("auto_keyboard")
     val shortcuts = stringPreferencesKey("shortcuts")
     val doubleTapLock = booleanPreferencesKey("double_tap_lock")
+    val widgetPage = booleanPreferencesKey("widget_page")
     val showNextEvent = booleanPreferencesKey("show_next_event")
     val mutedDelivery = stringPreferencesKey("muted_delivery")
     const val RENAME_PREFIX = "rename:"
@@ -213,6 +216,7 @@ fun Preferences.toSettings(): AppSettings {
         autoKeyboard = this[SettingsKeys.autoKeyboard] ?: true,
         shortcuts = parseShortcuts(this[SettingsKeys.shortcuts]),
         doubleTapLock = this[SettingsKeys.doubleTapLock] ?: true,
+        widgetPage = this[SettingsKeys.widgetPage] ?: true,
         showNextEvent = this[SettingsKeys.showNextEvent] ?: false,
         mutedDelivery = this[SettingsKeys.mutedDelivery]?.split(',')?.mapNotNull { it.toIntOrNull() }?.sorted() ?: emptyList(),
     )
@@ -330,6 +334,8 @@ class SettingsEditor(private val context: Context) {
     suspend fun setShowScreenTime(on: Boolean) = edit { it[SettingsKeys.showScreenTime] = on }
 
     suspend fun setAutoKeyboard(on: Boolean) = edit { it[SettingsKeys.autoKeyboard] = on }
+
+    suspend fun setWidgetPage(on: Boolean) = edit { it[SettingsKeys.widgetPage] = on }
 
     suspend fun setDoubleTapLock(on: Boolean) = edit { it[SettingsKeys.doubleTapLock] = on }
 

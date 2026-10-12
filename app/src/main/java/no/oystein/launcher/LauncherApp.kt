@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -96,7 +97,15 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     fun toggleGroup(name: String) {
         expanded = if (name in expanded) expanded - name else expanded + name
     }
-    val pager = rememberPagerState(initialPage = PAGE_HOME) { 3 }
+    // Widgetsiden kan slås av; da starter sidene på hjemskjermen. Widgetene ligger lagret uansett.
+    val firstPage = if (settings.widgetPage) PAGE_WIDGET else PAGE_HOME
+    val firstPageState = rememberUpdatedState(firstPage)
+    val pager = rememberPagerState(initialPage = PAGE_HOME - firstPage) { PAGE_APPS - firstPageState.value + 1 }
+    /** Hvilken side (PAGE_*) som vises, uavhengig av om widgetsiden er med. */
+    val settledPage = pager.settledPage + firstPage
+    val currentPage = pager.currentPage + firstPage
+    // Når widgetsiden slås av eller på, flyttes sidene; gå til hjemskjermen.
+    LaunchedEffect(firstPage) { pager.scrollToPage(PAGE_HOME - firstPage) }
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -111,7 +120,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     }
     // Ny versjon på GitHub? Sjekkes når launcheren vises (høyst hver tredje time).
     LaunchedEffect(resumeCount) { Updater.check(activity) }
-    LaunchedEffect(resumeCount, pager.settledPage) {
+    LaunchedEffect(resumeCount, settledPage) {
         usage = withContext(Dispatchers.Default) { Usage.today(activity) }
     }
     LaunchedEffect(Unit) {
@@ -124,23 +133,24 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             expanded = emptySet()
             keyboard?.hide()
             focus.clearFocus()
-            pager.scrollToPage(PAGE_HOME)
+            pager.scrollToPage(PAGE_HOME - firstPageState.value)
         }
     }
 
-    LaunchedEffect(pager.settledPage) {
-        android.util.Log.d("Launcher", "side=${pager.settledPage}")
-        if (pager.settledPage != PAGE_HOME) homeEditing = false
+    LaunchedEffect(settledPage) {
+        android.util.Log.d("Launcher", "side=$settledPage")
+        if (settledPage != PAGE_HOME) homeEditing = false
     }
 
     // Mens widgetpanelet er åpent, og en stund etter at en widget er valgt (tillatelse og oppsett i
     // andre vinduer), skal siden bak stå stille på widgetsiden. Tastaturet i panelet endrer
     // vindusstørrelsen, og det kunne få sidebladingen til å hoppe til hjemskjermen.
-    val pinned = overlay == Overlay.WidgetPicker || android.os.SystemClock.elapsedRealtime() < pinWidgetPageUntil
-    LaunchedEffect(pager.currentPage, pinned) {
-        if (pinned && pager.currentPage != PAGE_WIDGET) {
-            android.util.Log.d("Launcher", "holder widgetsiden (var ${pager.currentPage})")
-            pager.scrollToPage(PAGE_WIDGET)
+    val pinned = settings.widgetPage &&
+        (overlay == Overlay.WidgetPicker || android.os.SystemClock.elapsedRealtime() < pinWidgetPageUntil)
+    LaunchedEffect(currentPage, pinned) {
+        if (pinned && currentPage != PAGE_WIDGET) {
+            android.util.Log.d("Launcher", "holder widgetsiden (var $currentPage)")
+            pager.scrollToPage(PAGE_WIDGET - firstPage)
         }
     }
     LaunchedEffect(pinWidgetPageUntil) {
@@ -180,9 +190,9 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         when {
             overlay != null -> overlay = null
             homeEditing -> homeEditing = false
-            pager.currentPage != PAGE_HOME -> {
+            currentPage != PAGE_HOME -> {
                 android.util.Log.d("Launcher", "home: tilbake-knapp")
-                scope.launch { pager.animateScrollToPage(PAGE_HOME) }
+                scope.launch { pager.animateScrollToPage(PAGE_HOME - firstPage) }
             }
         }
     }
@@ -194,8 +204,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         // Bytt side allerede når man har dratt en firedel av bredden (standard er halvparten), så også
         // korte, rolige sveip virker.
         flingBehavior = PagerDefaults.flingBehavior(state = pager, snapPositionalThreshold = 0.25f),
-    ) { page ->
-        when (page) {
+    ) { index ->
+        when (index + firstPage) {
             PAGE_WIDGET -> WidgetPage(
                 activity = activity,
                 widgets = settings.widgets,
@@ -225,7 +235,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 onQuery = { query = it },
                 showHidden = showHidden,
                 onShowHidden = { showHidden = it },
-                isCurrent = pager.settledPage == PAGE_APPS,
+                isCurrent = settledPage == PAGE_APPS,
                 overlayOpen = overlay != null,
                 expanded = expanded,
                 onToggleGroup = ::toggleGroup,
