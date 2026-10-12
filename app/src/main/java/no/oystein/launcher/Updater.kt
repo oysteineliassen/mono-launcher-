@@ -38,6 +38,8 @@ object Updater {
         data class Downloading(val release: Release, val percent: Int) : State
         data class Installing(val release: Release) : State
         data class Failed(val message: String) : State
+        /** Svar på «Se etter ny» i innstillingene. Vises bare der, aldri på hjemskjermen. */
+        data class Info(val message: String) : State
     }
 
     private val _state = MutableStateFlow<State>(State.Idle)
@@ -61,11 +63,15 @@ object Updater {
             .getOrNull()
         if (release == null) {
             Log.d(TAG, "oppdatering: fant ingen utgivelse")
-            if (force) _state.value = State.Failed("Fant ingen oppdatering (ingen nettforbindelse?)")
+            _state.value = if (force) State.Info("Fant ingen oppdatering.") else State.Idle
             return
         }
         Log.d(TAG, "oppdatering: siste ${release.versionName} (${release.versionCode}), denne $current")
-        _state.value = if (release.versionCode > current) State.Available(release) else State.Idle
+        _state.value = when {
+            release.versionCode > current -> State.Available(release)
+            force -> State.Info("Du har nyeste versjon.")
+            else -> State.Idle
+        }
     }
 
     private fun fetchLatest(): Release? {

@@ -269,7 +269,7 @@ fun HomePage(
                 )
             }
 
-            updateText(update)?.let { text ->
+            updateText(update, onHome = true)?.let { text ->
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text,
@@ -394,11 +394,12 @@ private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () ->
     }
 
 /** Tekst om ny versjon på hjemskjermen, eller null når det ikke er noe å si. */
-fun updateText(state: Updater.State): String? = when (state) {
+fun updateText(state: Updater.State, onHome: Boolean = false): String? = when (state) {
     is Updater.State.Available -> "Ny versjon ${state.release.versionName} – trykk for å oppdatere"
     is Updater.State.Downloading -> "Laster ned oppdatering … ${state.percent} %"
     is Updater.State.Installing -> "Installerer oppdatering …"
     is Updater.State.Failed -> "${state.message} Trykk for å prøve igjen."
+    is Updater.State.Info -> if (onHome) null else state.message
     Updater.State.Idle -> null
 }
 
