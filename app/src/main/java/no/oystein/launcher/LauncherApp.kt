@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -190,6 +191,9 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         state = pager,
         modifier = Modifier.fillMaxSize(),
         beyondViewportPageCount = 2,
+        // Bytt side allerede når man har dratt en firedel av bredden (standard er halvparten), så også
+        // korte, rolige sveip virker.
+        flingBehavior = PagerDefaults.flingBehavior(state = pager, snapPositionalThreshold = 0.25f),
     ) { page ->
         when (page) {
             PAGE_WIDGET -> WidgetPage(

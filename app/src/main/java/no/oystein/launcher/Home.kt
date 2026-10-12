@@ -292,7 +292,9 @@ fun HomePage(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .verticalScroll(favoritesScroll)
+                    // Bare rullbar når favorittene ikke får plass; ellers ville et litt skrått sveip til
+                    // siden bli tatt som rulling, og sidebyttet uteble.
+                    .verticalScroll(favoritesScroll, enabled = favoritesScroll.maxValue > 0)
             ) {
                 if (settings.favorites.isEmpty()) {
                     Text(
