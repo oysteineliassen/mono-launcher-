@@ -105,7 +105,7 @@ object Updater {
     /** Laster ned og installerer. Ber først om lov til å installere apper hvis det mangler. */
     suspend fun install(activity: MainActivity, release: Release) {
         if (!activity.packageManager.canRequestPackageInstalls()) {
-            Toast.makeText(activity, "Tillat at Launcher installerer apper, og trykk på oppdateringen igjen", Toast.LENGTH_LONG).show()
+            Toast.makeText(activity, "Tillat at Mono Launcher installerer apper, og trykk på oppdateringen igjen", Toast.LENGTH_LONG).show()
             activity.startInternal(
                 Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))
             )

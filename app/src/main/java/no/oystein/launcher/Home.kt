@@ -410,7 +410,7 @@ private fun lockScreen(activity: MainActivity) {
     if (LockService.lock()) return
     Toast.makeText(
         activity,
-        "Slå på «Launcher» under Tilgjengelighet for å låse med dobbelttrykk",
+        "Slå på «Mono Launcher» under Tilgjengelighet for å låse med dobbelttrykk",
         Toast.LENGTH_LONG,
     ).show()
     activity.startInternal(LockService.settingsIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

@@ -1,4 +1,4 @@
-# Launcher
+# Mono Launcher
 
 Minimalistisk Android-startskjerm (Kotlin + Jetpack Compose, pakke `no.oystein.launcher`), laget som erstatning for
 Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
@@ -25,13 +25,13 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
   på hjemskjermen. Hold inne på den og velg «Fjern snarvei» for å fjerne den. Snarveier som ble lagt til mens en annen
   startskjerm var standard, følger ikke med – legg dem til på nytt fra Chrome.
 - **Hjem-knappen** går alltid tilbake til hjemskjermen. Det gjør også opplåsing.
-- **Dobbelttrykk** på tom plass på hjemskjermen låser telefonen. Krever at «Launcher» slås på under
+- **Dobbelttrykk** på tom plass på hjemskjermen låser telefonen. Krever at «Mono Launcher» slås på under
   Tilgjengelighet (Innstillinger → Tilganger → Låsing). Tjenesten leser ikke noe fra skjermen.
 - **Neste hendelse og alarm** kan vises under datoen (slås på i innstillingene; spør om kalendertilgang).
 - **Sikkerhetskopi:** Innstillinger → Sikkerhetskopi eksporterer/importerer hele oppsettet som en fil
   (widgetene må legges til på nytt). Android tar i tillegg automatisk sikkerhetskopi.
 - **Oppdatering:** launcheren ser selv etter nye versjoner under Releases og sier fra på hjemskjermen.
-  Trykk for å laste ned og installere (første gang må du tillate at Launcher installerer apper).
+  Trykk for å laste ned og installere (første gang må du tillate at Mono Launcher installerer apper).
 
 **Pauseskjerm:** for valgte apper vises en nedtelling (standard 10 sek) før «Åpne» dukker opp. Når dagens grense
 for en app er nådd, er nedtellingen tre ganger så lang (minst 30 sek). Gjelder når appen åpnes fra launcheren.
@@ -55,8 +55,8 @@ adb shell cmd package set-home-activity no.oystein.launcher/.MainActivity   # va
 
 Eller last ned APK-en på telefonen og åpne den. Deretter, i launcherens innstillinger (hold inne på hjemskjermen):
 
-1. **Standard startskjerm** → velg Launcher.
-2. **Varseltilgang** → slå på. Er bryteren grå («begrenset innstilling»), gå til Appinfo for Launcher → ⋮ →
+1. **Standard startskjerm** → velg Mono Launcher.
+2. **Varseltilgang** → slå på. Er bryteren grå («begrenset innstilling»), gå til Appinfo for Mono Launcher → ⋮ →
    «Tillat begrensede innstillinger» først. (Gjelder ikke når appen er installert med adb.)
 3. **Brukstilgang** → slå på (trengs for skjermtid og grenser).
 

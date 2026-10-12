@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Launcher</string>
-    <string name="lock_service_description">Lar launcheren låse skjermen når du dobbelttrykker på tom plass på hjemskjermen. Tjenesten leser ikke noe fra skjermen.</string>
+    <string name="app_name">Mono Launcher</string>
+    <string name="lock_service_description">Lar Mono Launcher låse skjermen når du dobbelttrykker på tom plass på hjemskjermen. Tjenesten leser ikke noe fra skjermen.</string>
 </resources>

@@ -88,7 +88,7 @@ fun SettingsScreen(
                 }
             }
             if (settings.doubleTapLock && !hasLock) {
-                item { Hint("Dobbelttrykk krever at «Launcher» slås på under Tilgjengelighet (se Tilganger).") }
+                item { Hint("Dobbelttrykk krever at «Mono Launcher» slås på under Tilgjengelighet (se Tilganger).") }
             }
 
             sectionHeader("Snarveier på hjemskjermen")
