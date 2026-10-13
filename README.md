@@ -13,7 +13,7 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 
 - **Widgetsiden** kan slås av under Innstillinger → Hjemskjerm. Widgetene beholdes og ligger på samme plass når
   den slås på igjen.
-- **Notat:** en kort linje på hjemskjermen (Innstillinger → Hjemskjerm → Notat). Trykk på notatet for å endre det.
+- **Notat:** en kort linje på hjemskjermen. Hold inne på klokken for å skrive det (eller Innstillinger → Hjemskjerm → Notat). Trykk på notatet for å endre det.
 - **Skjul statuslinjen** på hjemskjermen (Innstillinger → Hjemskjerm).
 - **Gråtoner** for hele telefonen, nå eller automatisk mellom to klokkeslett (f.eks. 21–07). Krever én gang:
   `adb shell pm grant no.oystein.launcher android.permission.WRITE_SECURE_SETTINGS`
@@ -27,7 +27,7 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
   den, hold inne for å endre navn eller slette den (appene beholdes).
 - **Hold inne på tom plass** på hjemskjermen: innstillinger (tilganger, favorittrekkefølge, widget, pauseskjerm,
   grenser, dempede apper, skjulte apper, skjermtid i dag).
-- **Sveip ned** hvor som helst på hjemskjermen (også over favorittene og nederst): varselpanelet. Trykk på klokken for alarmer, på datoen for kalenderen.
+- **Sveip ned** hvor som helst på hjemskjermen (også over favorittene og nederst): varselpanelet. Trykk på klokken for alarmer (hold inne for notat), på datoen for kalenderen.
 - **Nettapper (PWA) og snarveier:** «Legg til på startskjermen»/«Installer» i Chrome legger snarveien i applisten og
   på hjemskjermen. Hold inne på den og velg «Fjern snarvei» for å fjerne den. Snarveier som ble lagt til mens en annen
   startskjerm var standard, følger ikke med – legg dem til på nytt fra Chrome.

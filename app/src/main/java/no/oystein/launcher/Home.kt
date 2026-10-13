@@ -218,9 +218,15 @@ fun HomePage(
                 fontSize = 72.sp,
                 fontWeight = FontWeight.Thin,
                 color = Color.White,
-                modifier = Modifier.combinedClickable(onClick = {
-                    activity.startInternal(Intent(AlarmClock.ACTION_SHOW_ALARMS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }),
+                // Trykk: alarmer. Hold inne: skriv eller endre notatet på hjemskjermen.
+                modifier = Modifier
+                    .combinedClickable(
+                        onClick = {
+                            activity.startInternal(Intent(AlarmClock.ACTION_SHOW_ALARMS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        },
+                        onLongClick = onNote,
+                    )
+                    .testTag("clock"),
             )
             Text(
                 text = now.format(dateFormat),

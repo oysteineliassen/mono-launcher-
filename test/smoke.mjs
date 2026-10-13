@@ -567,21 +567,12 @@ await sleep(800);
 await home();
 console.log('Widgetsiden på igjen OK');
 
-// 6c. Notat på hjemskjermen.
+// 6c. Notat på hjemskjermen: hold inne på klokken.
 await home();
-longPress({ x: W / 2 | 0, y: H * 0.75 | 0 });
-await need(/^Innstillinger$/, 'innstillinger');
 {
-  let row = null;
-  for (let i = 0; i < 4 && !row; i++) {
-    row = nodes(dump()).find((n) => n.text === 'Notat: ingen');
-    if (!row) { sh(`adb shell input swipe ${W / 2 | 0} ${H * 0.7 | 0} ${W / 2 | 0} ${H * 0.45 | 0} 400`); await sleep(800); }
-  }
-  if (!row) fail('fant ikke «Notat: ingen» i innstillingene');
-  const write = nodes(dump()).find((n) => n.text === 'Skriv' && Math.abs(n.y - row.y) < 30);
-  if (!write) fail('fant ikke «Skriv» for notatet');
-  tap(write);
-  await sleep(1200);
+  longPress(await need(/^\d{1,2}:\d{2}$/, 'klokken'));
+  await need(/^Notat på hjemskjermen$/, 'notatdialogen etter langt trykk på klokken');
+  await sleep(800);
   sh('adb shell input text "Husk%smelk"');
   tap(await need(/^Lagre$/, 'Lagre notat'));
   await sleep(800);
