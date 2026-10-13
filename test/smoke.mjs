@@ -118,6 +118,17 @@ async function needDesc(desc) {
   }
   fail(`fant ikke ikonet «${desc}» på hjemskjermen`);
 }
+// Venter til en annen app ligger øverst (første oppstart kan være treg på emulatoren).
+async function waitTop(re, ms = 10000) {
+  const end = Date.now() + ms;
+  let top = '';
+  while (Date.now() < end) {
+    top = topActivity();
+    if (re.test(top)) return top;
+    await sleep(700);
+  }
+  return top;
+}
 if (!QUICK) {
   const phone = await needDesc('Telefon');
   const sms = await needDesc('Meldinger');
@@ -126,20 +137,17 @@ if (!QUICK) {
     fail(`ikonene står feil: telefon (${phone.x},${phone.y}), meldinger (${sms.x}), kamera (${camera.x})`);
   }
   tap(sms);
-  await sleep(2500);
-  const afterSms = topActivity();
+  const afterSms = await waitTop(/messag|mms|sms/i);
   console.log('Etter meldinger:', afterSms);
   if (!/messag|mms|sms/i.test(afterSms)) fail('meldingsappen åpnet seg ikke');
   await home();
   tap(phone);
-  await sleep(2500);
-  const afterPhone = topActivity();
+  const afterPhone = await waitTop(/dialer|contacts|phone/i);
   console.log('Etter telefon:', afterPhone);
   if (!/dialer|contacts|phone/i.test(afterPhone)) fail('telefonappen åpnet seg ikke');
   await home();
   tap(await needDesc('Kamera'));
-  await sleep(3000);
-  const afterCamera = topActivity();
+  const afterCamera = await waitTop(/camera|permissioncontroller/i);
   console.log('Etter kamera:', afterCamera);
   if (!/camera|permissioncontroller/i.test(afterCamera)) fail('kameraet åpnet seg ikke');
   await home();
