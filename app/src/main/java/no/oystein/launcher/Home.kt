@@ -46,6 +46,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.BatteryManager
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.Bolt
 import android.widget.Toast
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.Dispatchers
@@ -206,6 +211,15 @@ fun HomePage(
             )
             .testTag("home")
     ) {
+        // Når statuslinjen er skjult, vises batteriet diskret oppe til høyre i stedet.
+        if (settings.hideStatusBar) {
+            BatteryIndicator(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .displayCutoutPadding()
+                    .padding(top = 14.dp, end = 24.dp)
+            )
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -419,6 +433,63 @@ private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () ->
             }
         }
     }
+
+/** Lite batterisymbol med prosent, oppdatert når batterinivået endres. */
+@Composable
+private fun BatteryIndicator(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var level by remember { mutableIntStateOf(-1) }
+    var charging by remember { mutableStateOf(false) }
+    DisposableEffect(context) {
+        fun read(i: Intent?) {
+            i ?: return
+            val l = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+            if (l >= 0) level = l * 100 / scale
+            val status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) = read(intent)
+        }
+        // Batteristatus er «sticky»: registreringen gir siste verdi med en gang.
+        read(context.registerReceiver(receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    if (level < 0) return
+    val color = if (level <= 15 && !charging) Color.White else Dim
+    Row(modifier.testTag("battery"), verticalAlignment = Alignment.CenterVertically) {
+        Text("$level %", fontSize = 13.sp, color = color)
+        Spacer(Modifier.width(6.dp))
+        // Batteriet tegnet som en liten ramme med fyll etter nivået, og en knott på enden.
+        Canvas(Modifier.size(width = 22.dp, height = 11.dp)) {
+            val stroke = 1.2.dp.toPx()
+            val nub = 2.dp.toPx()
+            val bodyW = size.width - nub
+            drawRoundRect(
+                color = color,
+                size = androidx.compose.ui.geometry.Size(bodyW, size.height),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+            )
+            val pad = stroke * 1.8f
+            drawRect(
+                color = color,
+                topLeft = androidx.compose.ui.geometry.Offset(pad, pad),
+                size = androidx.compose.ui.geometry.Size((bodyW - pad * 2) * level / 100f, size.height - pad * 2),
+            )
+            drawRect(
+                color = color,
+                topLeft = androidx.compose.ui.geometry.Offset(bodyW, size.height * 0.3f),
+                size = androidx.compose.ui.geometry.Size(nub, size.height * 0.4f),
+            )
+        }
+        if (charging) {
+            Spacer(Modifier.width(3.dp))
+            Icon(Icons.Outlined.Bolt, contentDescription = "Lader", tint = color, modifier = Modifier.size(12.dp))
+        }
+    }
+}
 
 /** Tekst om ny versjon på hjemskjermen, eller null når det ikke er noe å si. */
 fun updateText(state: Updater.State, onHome: Boolean = false): String? = when (state) {

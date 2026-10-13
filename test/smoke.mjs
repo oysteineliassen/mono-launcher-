@@ -605,8 +605,13 @@ await sleep(1500);
   const last = launcherLog().split('\n').filter((l) => l.includes('statuslinje ')).pop() || '';
   console.log('Statuslinje:', last.trim());
   if (!/statuslinje skjult/.test(last)) fail('statuslinjen ble ikke skjult på hjemskjermen');
+  const battery = await waitText(/^\d{1,3} %$/, 5000);
+  console.log('Batteri på hjemskjermen:', battery ? battery.text : '(mangler)');
+  if (!battery) fail('batteriprosent vises ikke når statuslinjen er skjult');
+  shot('8e-batteri');
 }
 await toggleSetting('Skjul statuslinjen', 'av');
+if (nodes(dump()).some((n) => /^\d{1,3} %$/.test(n.text))) fail('batteriet skal bare vises når statuslinjen er skjult');
 console.log('Skjul statuslinje OK');
 
 // 6f. Gråtoner (tillatelsen gis med adb, som brukeren gjør én gang).
