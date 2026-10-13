@@ -48,7 +48,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.outlined.Bolt
 import android.widget.Toast
@@ -216,8 +215,8 @@ fun HomePage(
             BatteryIndicator(
                 Modifier
                     .align(Alignment.TopEnd)
-                    .displayCutoutPadding()
-                    .padding(top = 14.dp, end = 24.dp)
+                    // Helt oppe i hjørnet, der statuslinjen ellers ville vist batteriet.
+                    .padding(top = 10.dp, end = 24.dp)
             )
         }
         Column(
