@@ -22,12 +22,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Ser etter nye versjoner under Releases på GitHub og installerer dem i appen (Android spør om lov først).
+ * Ser etter nye versjoner under Releases i det offentlige repoet mono-launcher- på GitHub og installerer dem i appen (Android spør om lov først).
  * Sjekkes ved oppstart og når hjemskjermen vises, høyst hver tredje time.
  */
 object Updater {
     private const val TAG = "Launcher"
-    private const val LATEST = "https://api.github.com/repos/oysteineliassen/test/releases/latest"
+    private const val LATEST = "https://api.github.com/repos/oysteineliassen/mono-launcher-/releases/latest"
     private const val CHECK_EVERY_MS = 3 * 60 * 60 * 1000L
 
     data class Release(val versionCode: Int, val versionName: String, val apkUrl: String)
