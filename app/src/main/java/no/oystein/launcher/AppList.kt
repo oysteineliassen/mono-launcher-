@@ -89,16 +89,29 @@ fun AppListPage(
         }
     }
 
+    // Nylig installerte apper ligger øverst de første to døgnene, deretter i alfabetisk rekkefølge med resten.
+    // (Bare uten søk; apper som er lagt i en gruppe, blir i gruppen.)
+    val newApps = remember(singles, query) {
+        if (query.isNotBlank()) emptyList() else {
+            val since = System.currentTimeMillis() - NEW_APP_MS
+            singles.filter { it.installedAt > since && !it.isShortcut }.sortedByDescending { it.installedAt }
+        }
+    }
+    val restSingles = remember(singles, newApps) {
+        if (newApps.isEmpty()) singles else newApps.map { it.key }.toSet().let { keys -> singles.filter { it.key !in keys } }
+    }
+
     // Tastaturet følger siden og eventuelle dialoger; søket nullstilles bare når man forlater siden.
     // Første plass i listen for hver forbokstav blant enkeltappene (grupper og åpne gruppeapper ligger før).
-    val letterIndex = remember(groups, singles, expanded, query, settings) {
+    val letterIndex = remember(groups, restSingles, newApps, expanded, query, settings) {
         var idx = 1 // mellomrommet øverst i listen
+        if (newApps.isNotEmpty()) idx += 1 + newApps.size
         for (g in groups) {
             idx += 1
             if (query.isNotBlank() || g.name in expanded) idx += g.apps.size
         }
         val map = LinkedHashMap<Char, Int>()
-        singles.forEachIndexed { i, a -> map.putIfAbsent(firstLetter(a.label(settings)), idx + i) }
+        restSingles.forEachIndexed { i, a -> map.putIfAbsent(firstLetter(a.label(settings)), idx + i) }
         map
     }
     val scope = rememberCoroutineScope()
@@ -179,6 +192,14 @@ fun AppListPage(
                     .testTag("applist"),
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
+                if (newApps.isNotEmpty()) {
+                    item(key = "nye") {
+                        Text("Nye", fontSize = 14.sp, color = Faint, modifier = Modifier.padding(top = 4.dp, bottom = 2.dp))
+                    }
+                    items(newApps, key = { "ny:" + it.key }) { app ->
+                        AppRow(app, settings, usage, indent = false, onOpen = ::openAndReset, onMenu = onMenu)
+                    }
+                }
                 for (group in groups) {
                     val open = query.isNotBlank() || group.name in expanded
                     item(key = "g:" + group.name) {
@@ -197,7 +218,7 @@ fun AppListPage(
                         }
                     }
                 }
-                items(singles, key = { it.key }) { app ->
+                items(restSingles, key = { it.key }) { app ->
                     AppRow(app, settings, usage, indent = false, onOpen = ::openAndReset, onMenu = onMenu)
                 }
                 if (results.isEmpty() && groups.isEmpty() && query.isNotBlank()) {
@@ -271,3 +292,6 @@ fun firstLetter(label: String): Char {
     val base = Normalizer.normalize(c.toString(), Normalizer.Form.NFD).first().uppercaseChar()
     return if (base.isLetter()) base else '#'
 }
+
+/** Hvor lenge en nyinstallert app ligger øverst i applisten. */
+private const val NEW_APP_MS = 48 * 60 * 60 * 1000L

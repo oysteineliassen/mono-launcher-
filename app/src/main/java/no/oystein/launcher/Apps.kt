@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
 import android.graphics.Rect
@@ -28,6 +29,8 @@ data class AppEntry(
     val isWorkProfile: Boolean,
     /** Satt for festede snarveier (f.eks. nettapper/PWA lagt til fra Chrome), ellers null. */
     val shortcut: ShortcutInfo? = null,
+    /** Når appen ble installert første gang (0 hvis ukjent). Brukes til «Nye» øverst i applisten. */
+    val installedAt: Long = 0L,
 ) {
     val isShortcut: Boolean get() = shortcut != null
 }
@@ -55,6 +58,9 @@ class AppRepository(private val context: Context) {
                     user = user,
                     originalLabel = info.label?.toString() ?: cn.packageName,
                     isWorkProfile = work,
+                    // Forhåndsinstallerte apper får «installert» = første oppstart av telefonen; de er aldri nye.
+                    installedAt = if (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0) 0L
+                    else runCatching { info.firstInstallTime }.getOrDefault(0L),
                 )
             }
             result += loadPinnedShortcuts(user, work, serial)
