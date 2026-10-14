@@ -46,8 +46,10 @@ object Usage {
     }
 
     /**
-     * Som [today], men teller også åpninger: hver gang en app kommer fram på skjermen fra noe annet
-     * (startskjermen, en annen app, låseskjermen). Bytte mellom skjermbilder i samme app teller ikke.
+     * Som [today], men teller også åpninger: hver gang man går inn i en app. Det teller ikke som en ny
+     * åpning når man kommer tilbake til samme app etter å ha låst opp skjermen, eller innen et halvt
+     * minutt etter et kort avbrudd (dialog, deling, tillatelse, startskjermen et øyeblikk). Apper som
+     * bare blinker forbi i under ett sekund (f.eks. når en app sender videre til en annen) telles ikke.
      */
     fun todayStats(context: Context): Stats {
         if (!hasPermission(context)) return Stats(emptyMap(), emptyMap())
@@ -62,13 +64,33 @@ object Usage {
         var current: String? = null
         var currentClass: String? = null
         var since = 0L
+        // Om økten som pågår er en ny åpning, og hvilken app som sist var i bruk (og når/hvordan den sluttet).
+        var currentIsOpen = false
+        var lastPkg: String? = null
+        var lastEnd = 0L
+        var lastEndedByScreen = false
 
-        fun close(at: Long) {
+        fun close(at: Long, byScreen: Boolean = false) {
             val pkg = current ?: return
             val from = maxOf(since, start)
             if (at > from) total[pkg] = (total[pkg] ?: 0L) + (at - from)
+            // Glimt på under ett sekund er støy: de teller ikke og endrer ikke hvilken app som sist var i bruk.
+            if (at - since >= 1_000L) {
+                if (currentIsOpen && since >= start) opens[pkg] = (opens[pkg] ?: 0) + 1
+                lastPkg = pkg
+                lastEnd = at
+                lastEndedByScreen = byScreen
+            }
             current = null
             currentClass = null
+        }
+
+        fun begin(pkg: String, cls: String?, t: Long) {
+            current = pkg
+            currentClass = cls
+            since = t
+            val continued = pkg == lastPkg && (lastEndedByScreen || t - lastEnd < 30_000L)
+            currentIsOpen = !continued
         }
 
         val event = UsageEvents.Event()
@@ -83,10 +105,7 @@ object Usage {
                         close(t)
                     } else if (pkg != current) {
                         close(t)
-                        current = pkg
-                        currentClass = event.className
-                        since = t
-                        if (t >= start) opens[pkg] = (opens[pkg] ?: 0) + 1
+                        begin(pkg, event.className, t)
                     } else {
                         // Nytt skjermbilde i samme app: fortsett tellingen.
                         currentClass = event.className
@@ -96,7 +115,7 @@ object Usage {
                     if (pkg == current && event.className == currentClass) close(t)
                 UsageEvents.Event.SCREEN_NON_INTERACTIVE,
                 UsageEvents.Event.KEYGUARD_SHOWN,
-                UsageEvents.Event.DEVICE_SHUTDOWN -> close(t)
+                UsageEvents.Event.DEVICE_SHUTDOWN -> close(t, byScreen = true)
             }
         }
         close(now)
