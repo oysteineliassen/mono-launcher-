@@ -105,7 +105,7 @@ fun AppListPage(
     // Første plass i listen for hver forbokstav blant enkeltappene (grupper og åpne gruppeapper ligger før).
     val letterIndex = remember(groups, restSingles, newApps, expanded, query, settings) {
         var idx = 1 // mellomrommet øverst i listen
-        if (newApps.isNotEmpty()) idx += 1 + newApps.size
+        if (newApps.isNotEmpty()) idx += 2 + newApps.size // «Nye», appene og skillelinjen
         for (g in groups) {
             idx += 1
             if (query.isNotBlank() || g.name in expanded) idx += g.apps.size
@@ -198,6 +198,14 @@ fun AppListPage(
                     }
                     items(newApps, key = { "ny:" + it.key }) { app ->
                         AppRow(app, settings, usage, indent = false, onOpen = ::openAndReset, onMenu = onMenu)
+                    }
+                    // Luft og en tynn strek mellom de nye og resten av listen.
+                    item(key = "nye-slutt") {
+                        Column {
+                            Spacer(Modifier.height(10.dp))
+                            HorizontalDivider(Modifier.padding(end = 32.dp), color = Faint, thickness = 0.5.dp)
+                            Spacer(Modifier.height(14.dp))
+                        }
                     }
                 }
                 for (group in groups) {
