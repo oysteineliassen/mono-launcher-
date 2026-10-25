@@ -148,8 +148,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L + 200L)
         }
     }
-    // Statuslinjen skjules mens hjemskjermen vises (sveip ned fra toppen viser den en kort stund).
-    val hideBar = settings.hideStatusBar && settledPage == PAGE_HOME && overlay == null
+    // Statuslinjen skjules på alle sidene i launcheren (hjem, applisten og widgetsiden), ikke i innstillinger og dialoger (sveip ned fra toppen viser den en kort stund).
+    val hideBar = settings.hideStatusBar && overlay == null
     LaunchedEffect(hideBar, resumeCount) {
         val controller = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
