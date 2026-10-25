@@ -8,13 +8,13 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 | Sveip | Side |
 |---|---|
 | – | **Hjemskjerm**: klokke, dato, skjermtid i dag, antall dempede varsler og favorittene dine. Nederst snarveier til telefon, meldinger og kamera; rekkefølge og hvilke som vises velges i innstillingene |
-| Til venstre | **Appliste** med søk. Enter/«Gå» åpner første treff. Dra fingeren langs bokstavene til høyre for å hoppe til en forbokstav. Tannhjulet oppe til høyre åpner innstillingene |
+| Til venstre | **Appliste** med søk. Enter/«Gå» åpner første treff. Dra fingeren langs bokstavene til høyre for å hoppe til en forbokstav. Tannhjulet oppe til høyre åpner innstillingene (hold inne for Androids innstillinger) |
 | Til høyre | **Widgeter** i et rutenett med 4 kolonner, redigert som på iPhone: **hold fingeren inne** for å redigere (widgetene vrikker). Dra en widget for å flytte den, hjørnet ◢ for å endre størrelse, og − for å fjerne. «+ Legg til» åpner et panel nedenfra med søk og forhåndsvisning av alle widgeter. «Ferdig» avslutter |
 
 - **Widgetsiden** kan slås av under Innstillinger → Hjemskjerm. Widgetene beholdes og ligger på samme plass når
   den slås på igjen.
 - **Notat:** en kort linje på hjemskjermen. Hold inne på klokken for å skrive det (eller Innstillinger → Hjemskjerm → Notat). Trykk på notatet for å endre det.
-- **Skjul statuslinjen** på hjemskjermen, i applisten og på widgetsiden (Innstillinger → Hjemskjerm). Batteriet vises da som et lite symbol med prosent oppe til høyre.
+- **Skjul statuslinjen** på hjemskjermen, i applisten og på widgetsiden (Innstillinger → Hjemskjerm). Batteriet vises da som et lite symbol med prosent oppe til høyre (hjemskjermen og applisten).
 - **Gråtoner** for hele telefonen, nå eller automatisk mellom to klokkeslett (f.eks. 21–07). Krever én gang:
   `adb shell pm grant no.oystein.launcher android.permission.WRITE_SECURE_SETTINGS`
 - **Åpninger:** skjermtidslinjen viser også hvor mange ganger apper er åpnet i dag (per app i innstillingene).

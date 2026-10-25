@@ -435,7 +435,7 @@ private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () ->
 
 /** Lite batterisymbol med prosent, oppdatert når batterinivået endres. */
 @Composable
-private fun BatteryIndicator(modifier: Modifier = Modifier) {
+fun BatteryIndicator(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var level by remember { mutableIntStateOf(-1) }
     var charging by remember { mutableStateOf(false) }

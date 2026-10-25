@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -69,6 +70,7 @@ fun AppListPage(
     onSettings: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
+    val context = LocalContext.current
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
@@ -145,7 +147,12 @@ fun AppListPage(
             // Ingen høyremarg her: bokstavlisten skal gå helt ut mot skjermkanten.
             .padding(start = 32.dp)
     ) {
-        Spacer(Modifier.height(32.dp))
+        // Luft over søkefeltet; med skjult statuslinje står batteriet her, som på hjemskjermen.
+        Box(Modifier.fillMaxWidth().height(32.dp)) {
+            if (settings.hideStatusBar) {
+                BatteryIndicator(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 24.dp))
+            }
+        }
         Row(Modifier.padding(end = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             BasicTextField(
                 value = query,
@@ -173,7 +180,11 @@ fun AppListPage(
             Box(
                 Modifier
                     .size(48.dp)
-                    .clickable { keyboard?.hide(); onSettings() },
+                    // Trykk: launcherens innstillinger. Hold inne: Androids innstillinger.
+                    .combinedClickable(
+                        onClick = { keyboard?.hide(); onSettings() },
+                        onLongClick = { keyboard?.hide(); openAndroidSettings(context) },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Outlined.Settings, contentDescription = "Innstillinger", tint = Dim, modifier = Modifier.size(24.dp))
@@ -303,3 +314,13 @@ fun firstLetter(label: String): Char {
 
 /** Hvor lenge en nyinstallert app ligger øverst i applisten. */
 private const val NEW_APP_MS = 48 * 60 * 60 * 1000L
+
+/** Åpner Androids egne innstillinger. */
+fun openAndroidSettings(context: android.content.Context) {
+    runCatching {
+        context.startActivity(
+            android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+}

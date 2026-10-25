@@ -68,6 +68,9 @@ fun SettingsScreen(
     FullScreen {
         Title("Innstillinger", onClose)
         LazyColumn(Modifier.fillMaxSize().testTag("settings")) {
+            item {
+                ListRow("Android-innstillinger") { TextAction("Åpne") { openAndroidSettings(activity) } }
+            }
             sectionHeader("Tilganger")
             item {
                 StatusRow("Standard startskjerm", isDefault) { activity.requestDefaultLauncher() }

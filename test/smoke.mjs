@@ -609,6 +609,12 @@ await sleep(1500);
   console.log('Batteri på hjemskjermen:', battery ? battery.text : '(mangler)');
   if (!battery) fail('batteriprosent vises ikke når statuslinjen er skjult');
   shot('8e-batteri');
+  swipeLeft();
+  const listBattery = await waitText(/^\d{1,3} %$/, 5000);
+  console.log('Batteri i applisten:', listBattery ? listBattery.text : '(mangler)');
+  if (!listBattery) fail('batteriprosent vises ikke i applisten når statuslinjen er skjult');
+  shot('8f-batteri-applisten');
+  await home();
 }
 await toggleSetting('Skjul statuslinjen', 'av');
 if (nodes(dump()).some((n) => /^\d{1,3} %$/.test(n.text))) fail('batteriet skal bare vises når statuslinjen er skjult');
