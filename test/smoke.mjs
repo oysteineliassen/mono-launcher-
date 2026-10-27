@@ -205,6 +205,23 @@ tap(await need(/^Lagre$/, 'Lagre'));
 await need(/^Oppsett$/, 'nytt navn i listen');
 console.log('Appmeny OK');
 
+// 3b. «Avinstaller» skal åpne Androids avinstallering (krever REQUEST_DELETE_PACKAGES, ellers skjer ingenting).
+sh('adb logcat -c');
+longPress(await need(/^Oppsett$/, 'Oppsett i applisten'));
+tap(await need(/^Avinstaller$/, 'menyvalget «Avinstaller»'));
+{
+  await sleep(2500);
+  const log = (() => { try { return sh('adb logcat -d'); } catch { return ''; } })();
+  const started = log.split('\n').filter((l) => /act=android\.intent\.action\.(DELETE|UNINSTALL_PACKAGE)/.test(l));
+  const denied = log.split('\n').filter((l) => /REQUEST_DELETE_PACKAGES/.test(l));
+  console.log('Avinstaller:', topActivity(), '|', started.length, 'start,', denied.length, 'avvist');
+  if (denied.length) fail('avinstalleringen ble avvist: ' + denied[0]);
+  if (!started.length) fail('«Avinstaller» startet ikke Androids avinstallering');
+  sh('adb shell input keyevent KEYCODE_BACK');
+  await sleep(1000);
+}
+console.log('Avinstaller OK');
+
 // 4. Favoritt på hjemskjermen + pauseskjerm
 await home();
 const fav = await need(/^Oppsett$/, 'favoritt på hjemskjermen');

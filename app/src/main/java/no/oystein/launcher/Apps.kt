@@ -186,12 +186,15 @@ class AppRepository(private val context: Context) {
         }
     }
 
+    /** Androids avinstalleringsdialog for appen (også for apper i jobbprofilen). Appinfo hvis det ikke går. */
     fun uninstall(app: AppEntry) {
         val intent = Intent(Intent.ACTION_DELETE, android.net.Uri.parse("package:${app.packageName}"))
+            .putExtra(Intent.EXTRA_USER, app.user)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             context.startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
+        } catch (_: Exception) {
+            openAppInfo(app)
         }
     }
 }

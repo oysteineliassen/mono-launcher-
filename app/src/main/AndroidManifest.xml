@@ -13,6 +13,8 @@
     <!-- Ser etter og installerer nye versjoner fra GitHub. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- «Avinstaller» i appmenyen: uten denne ignorerer Android forespørselen uten å si fra. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Neste kalenderhendelse på hjemskjermen (spørres først når det slås på). -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- Gråtoner på hele telefonen. Gis én gang med adb (pm grant), ellers er valget bare en forklaring. -->
