@@ -266,6 +266,36 @@ if (nodes(dump()).some((n) => n.text === 'Oppsett')) fail('gruppen lukket seg ik
 tap(await need(/^System$/, 'gruppen på hjemskjermen'));
 await need(/^Oppsett$/, 'appen i den åpne gruppen igjen');
 console.log('Gruppe lukkes ved trykk utenfor OK');
+
+// En app som legges i en gruppe som allerede er på hjemskjermen, kommer dit med en gang.
+await home();
+swipeLeft();
+await sleep(1500);
+sh('adb shell input keyevent KEYCODE_BACK'); // lukk tastaturet
+await sleep(500);
+longPress(await need(/^Clock$/, 'Clock i applisten'));
+tap(await need(/^Legg i gruppe$/, 'menyvalg gruppe'));
+tap(await need(/^System$/, 'gruppen System i gruppevalget'));
+await sleep(800);
+await home();
+tap(await need(/^System$/, 'gruppen på hjemskjermen'));
+await need(/^Clock$/, 'Clock i gruppen på hjemskjermen uten å legge den til selv');
+console.log('Ny app i gruppe på hjemskjermen OK');
+// Rydd opp: Clock ut av gruppen og av hjemskjermen.
+await home();
+swipeLeft();
+await sleep(1500);
+sh('adb shell input keyevent KEYCODE_BACK');
+await sleep(500);
+tap(await need(/^System$/, 'gruppen i applisten'));
+longPress(await need(/^Clock$/, 'Clock i gruppen i applisten'));
+tap(await need(/^Fjern fra hjemskjermen$/, 'menyvalg fjern'));
+await sleep(800);
+longPress(await need(/^Clock$/, 'Clock i applisten'));
+tap(await need(/^Legg i gruppe$/, 'menyvalg gruppe'));
+tap(await need(/^Ingen gruppe$/, 'Ingen gruppe'));
+await sleep(800);
+await home();
 swipeLeft();
 await sleep(1000);
 const listNodes = nodes(dump()).filter((n) => n.text);

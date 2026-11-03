@@ -321,6 +321,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         is Overlay.GroupMenu -> GroupMenu(
             activity = activity,
             name = o.name,
+            settings = settings,
             onRename = { overlay = Overlay.RenameGroup(o.name) },
             onClose = { overlay = null },
         )

@@ -283,13 +283,28 @@ class SettingsEditor(private val context: Context) {
         }
     }
 
-    /** Legger appen i en gruppe, eller tar den ut av gruppen når [name] er tomt. */
+    /**
+     * Legger appen i en gruppe, eller tar den ut av gruppen når [name] er tomt. Ligger gruppen allerede på
+     * hjemskjermen (en av appene i den er favoritt), kommer appen dit også med en gang.
+     */
     suspend fun setGroup(key: String, name: String?) = edit {
         if (name.isNullOrBlank()) {
             it.remove(SettingsKeys.group(key))
         } else {
-            it[SettingsKeys.group(key)] = name.trim()
+            val group = name.trim()
+            it[SettingsKeys.group(key)] = group
+            val favorites = it.favoriteList()
+            val groupOnHome = it.groupKeys(group).any { k -> k != key && k in favorites }
+            if (groupOnHome && key !in favorites) it[SettingsKeys.favorites] = (favorites + key).joinToString("\n")
         }
+    }
+
+    /** Hele gruppen på hjemskjermen (alle appene i den blir favoritter), eller fjern hele gruppen derfra. */
+    suspend fun setGroupOnHome(name: String, on: Boolean) = edit {
+        val keys = it.groupKeys(name)
+        val favorites = it.favoriteList()
+        val next = if (on) favorites + keys.filter { k -> k !in favorites } else favorites.filter { k -> k !in keys }
+        it[SettingsKeys.favorites] = next.joinToString("\n")
     }
 
     private fun MutablePreferences.groupKeys(name: String) =

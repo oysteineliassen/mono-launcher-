@@ -137,10 +137,24 @@ fun GroupDialog(activity: MainActivity, app: AppEntry, settings: AppSettings, on
 }
 
 @Composable
-fun GroupMenu(activity: MainActivity, name: String, onRename: () -> Unit, onClose: () -> Unit) {
+fun GroupMenu(activity: MainActivity, name: String, settings: AppSettings, onRename: () -> Unit, onClose: () -> Unit) {
+    val keys = settings.groups.filterValues { it == name }.keys
+    val onHome = keys.count { it in settings.favorites }
     TextDialog(onClose) {
         Text(name, fontSize = 24.sp, fontWeight = FontWeight.Light, color = Color.White)
         Spacer(Modifier.height(12.dp))
+        if (onHome < keys.size) {
+            MenuItem(if (onHome == 0) "Legg gruppen på hjemskjermen" else "Legg alle appene i gruppen på hjemskjermen") {
+                activity.lifecycleScope.launch { activity.editor.setGroupOnHome(name, true) }
+                onClose()
+            }
+        }
+        if (onHome > 0) {
+            MenuItem("Fjern gruppen fra hjemskjermen") {
+                activity.lifecycleScope.launch { activity.editor.setGroupOnHome(name, false) }
+                onClose()
+            }
+        }
         MenuItem("Endre navn", onRename)
         MenuItem("Slett gruppe (appene beholdes)") {
             activity.lifecycleScope.launch { activity.editor.deleteGroup(name) }
