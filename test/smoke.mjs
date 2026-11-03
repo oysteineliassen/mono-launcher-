@@ -292,7 +292,7 @@ longPress(await need(/^Clock$/, 'Clock i gruppen i applisten'));
 tap(await need(/^Fjern fra hjemskjermen$/, 'menyvalg fjern'));
 await sleep(800);
 longPress(await need(/^Clock$/, 'Clock i applisten'));
-tap(await need(/^Legg i gruppe$/, 'menyvalg gruppe'));
+tap(await need(/^(Legg i gruppe|Gruppe: .*)$/, 'menyvalg gruppe'));
 tap(await need(/^Ingen gruppe$/, 'Ingen gruppe'));
 await sleep(800);
 await home();
