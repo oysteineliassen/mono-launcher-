@@ -1,6 +1,7 @@
 package no.oystein.launcher
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.animation.animateContentSize
@@ -200,8 +201,8 @@ fun HomePage(
     val openGroup = groups.firstOrNull { it.name in expanded }?.name
     val currentOpenGroup by rememberUpdatedState(openGroup)
     val currentToggle by rememberUpdatedState(onToggleGroup)
-    // Høyden på favorittlisten sist den ble vist (mappen holder av like mye plass).
-    var listHeightPx by remember { mutableIntStateOf(0) }
+    // Hvor gruppenavnene står i favorittlisten, så navnet kan gli derfra når gruppen åpnes som mappe.
+    val headerY = remember { mutableStateMapOf<String, Float>() }
     val favoritesScroll = rememberScrollState()
     val currentEditing by rememberUpdatedState(editing)
 
@@ -357,84 +358,108 @@ fun HomePage(
                 // igjen med god luft. Trykk på gruppenavnet eller utenfor lukker den. (Under sortering vises
                 // gruppen åpen i listen som før, så man kan dra appene.)
                 val folder = if (editing) null else groups.firstOrNull { it.name == openGroup }
-                // Mappen begynner der listen begynte: plassen listen tok holdes av mens mappen vises, så
-                // ingenting hopper. Blir mappen høyere enn listen, vokser den mykt.
-                val density = LocalDensity.current
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = if (folder != null) with(density) { listHeightPx.toDp() } else 0.dp)
-                        .animateContentSize(tween(260)),
-                ) {
-                Crossfade(targetState = folder, animationSpec = tween(260), label = "mappe") { f ->
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .then(if (f == null) Modifier.onSizeChanged { listHeightPx = it.height } else Modifier)
-                    ) {
-                        if (f != null) {
-                            GroupHeader(
-                                group = f,
-                                expanded = true,
-                                fontSize = 28.sp,
-                                verticalPadding = 10,
-                                onToggle = { onToggleGroup(f.name) },
-                                onMenu = { onGroupMenu(f.name) },
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            ReorderableFavorites(
-                                apps = f.apps,
-                                settings = settings,
-                                indent = true,
-                                editing = false,
-                                onEditingChange = onEditingChange,
-                                onOpen = onOpen,
-                                onMenu = onMenu,
-                                onReorder = ::saveOrder,
-                                spacious = true,
-                            )
-                        } else {
-                            for (group in groups) {
-                                val open = editing && group.name in expanded
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(Modifier.weight(1f)) {
-                                        GroupHeader(
-                                            group = group,
-                                            expanded = open,
-                                            fontSize = 28.sp,
-                                            verticalPadding = 10,
-                                            onToggle = { onToggleGroup(group.name) },
-                                            onMenu = { onGroupMenu(group.name) },
-                                        )
-                                    }
-                                    if (editing) MoreButton("Valg for ${group.name}") { onGroupMenu(group.name) }
-                                }
-                                if (open) {
-                                    ReorderableFavorites(
-                                        apps = group.apps,
-                                        settings = settings,
-                                        indent = true,
-                                        editing = editing,
-                                        onEditingChange = onEditingChange,
-                                        onOpen = onOpen,
-                                        onMenu = onMenu,
-                                        onReorder = ::saveOrder,
-                                    )
-                                }
-                            }
-                            ReorderableFavorites(
-                                apps = singles,
-                                settings = settings,
-                                indent = false,
-                                editing = editing,
-                                onEditingChange = onEditingChange,
-                                onOpen = onOpen,
-                                onMenu = onMenu,
-                                onReorder = ::saveOrder,
-                            )
-                        }
+                // Mappen: gruppenavnet glir fra plassen sin i listen opp til toppen, resten av listen tones
+                // ut og appene i gruppen tones inn under navnet. Lukking går samme vei tilbake. Listen ligger
+                // hele tiden under (usynlig), så plassen er den samme og ingenting hopper.
+                var shownFolder by remember { mutableStateOf<AppGroup?>(null) }
+                val progress = remember { Animatable(0f) }
+                LaunchedEffect(folder?.name, folder?.apps?.size) {
+                    if (folder != null) {
+                        shownFolder = folder
+                        progress.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+                    } else if (shownFolder != null) {
+                        progress.animateTo(0f, tween(280, easing = FastOutSlowInEasing))
+                        shownFolder = null
                     }
                 }
+                val p = progress.value
+                Box(Modifier.fillMaxWidth().animateContentSize(tween(300))) {
+                    Column(Modifier.fillMaxWidth().graphicsLayer { alpha = 1f - p }) {
+                        for (group in groups) {
+                            val open = editing && group.name in expanded
+                            Row(
+                                Modifier.onGloballyPositioned { headerY[group.name] = it.positionInParent().y },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.weight(1f)) {
+                                    GroupHeader(
+                                        group = group,
+                                        expanded = open,
+                                        fontSize = 28.sp,
+                                        verticalPadding = 10,
+                                        onToggle = { onToggleGroup(group.name) },
+                                        onMenu = { onGroupMenu(group.name) },
+                                    )
+                                }
+                                if (editing) MoreButton("Valg for ${group.name}") { onGroupMenu(group.name) }
+                            }
+                            if (open) {
+                                ReorderableFavorites(
+                                    apps = group.apps,
+                                    settings = settings,
+                                    indent = true,
+                                    editing = editing,
+                                    onEditingChange = onEditingChange,
+                                    onOpen = onOpen,
+                                    onMenu = onMenu,
+                                    onReorder = ::saveOrder,
+                                )
+                            }
+                        }
+                        ReorderableFavorites(
+                            apps = singles,
+                            settings = settings,
+                            indent = false,
+                            editing = editing,
+                            onEditingChange = onEditingChange,
+                            onOpen = onOpen,
+                            onMenu = onMenu,
+                            onReorder = ::saveOrder,
+                        )
+                    }
+                    shownFolder?.let { f ->
+                        // Usynlig flate over listen: trykk på den (utenfor appene i gruppen) lukker mappen.
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null,
+                                ) { if (folder != null) onToggleGroup(f.name) }
+                        )
+                        Column(Modifier.fillMaxWidth()) {
+                            val fromY = headerY[f.name] ?: 0f
+                            Box(Modifier.graphicsLayer { translationY = fromY * (1f - p) }) {
+                                GroupHeader(
+                                    group = f,
+                                    expanded = true,
+                                    fontSize = 28.sp,
+                                    verticalPadding = 10,
+                                    onToggle = { onToggleGroup(f.name) },
+                                    onMenu = { onGroupMenu(f.name) },
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                Modifier.graphicsLayer {
+                                    alpha = ((p - 0.35f) / 0.65f).coerceIn(0f, 1f)
+                                    translationY = fromY * (1f - p) * 0.5f
+                                }
+                            ) {
+                                ReorderableFavorites(
+                                    apps = f.apps,
+                                    settings = settings,
+                                    indent = true,
+                                    editing = false,
+                                    onEditingChange = onEditingChange,
+                                    onOpen = onOpen,
+                                    onMenu = onMenu,
+                                    onReorder = ::saveOrder,
+                                    spacious = true,
+                                )
+                            }
+                        }
+                    }
                 }
             }
             Spacer(Modifier.weight(1f))
