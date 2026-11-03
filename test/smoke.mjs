@@ -259,6 +259,13 @@ if (nodes(dump()).some((n) => n.text === 'Oppsett')) fail('appen i gruppen skal 
 tap(groupHeader);
 await need(/^Oppsett$/, 'appen i den åpne gruppen');
 shot('5b-gruppe-hjem');
+// Trykk på tom plass lukker gruppen igjen.
+tap({ x: W / 2 | 0, y: H * 0.42 | 0 });
+await sleep(1200);
+if (nodes(dump()).some((n) => n.text === 'Oppsett')) fail('gruppen lukket seg ikke ved trykk utenfor');
+tap(await need(/^System$/, 'gruppen på hjemskjermen'));
+await need(/^Oppsett$/, 'appen i den åpne gruppen igjen');
+console.log('Gruppe lukkes ved trykk utenfor OK');
 swipeLeft();
 await sleep(1000);
 const listNodes = nodes(dump()).filter((n) => n.text);

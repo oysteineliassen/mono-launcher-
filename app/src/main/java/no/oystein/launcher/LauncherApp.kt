@@ -97,7 +97,8 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
     // Åpne grupper, felles for hjemskjerm og appliste. Lukkes når man går hjem.
     var expanded by remember { mutableStateOf(emptySet<String>()) }
     fun toggleGroup(name: String) {
-        expanded = if (name in expanded) expanded - name else expanded + name
+        // Bare én gruppe åpen om gangen: åpner man en ny, lukkes den forrige.
+        expanded = if (name in expanded) expanded - name else setOf(name)
     }
     // Widgetsiden kan slås av; da starter sidene på hjemskjermen. Widgetene ligger lagret uansett.
     val firstPage = if (settings.widgetPage) PAGE_WIDGET else PAGE_HOME

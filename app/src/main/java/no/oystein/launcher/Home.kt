@@ -192,6 +192,10 @@ fun HomePage(
     }
     // Favoritter som ligger i en gruppe vises under gruppen; gruppene står øverst i alfabetisk rekkefølge.
     val (groups, singles) = remember(favorites, settings) { favorites.grouped(settings) }
+    val openGroup = groups.firstOrNull { it.name in expanded }?.name
+    val currentOpenGroup by rememberUpdatedState(openGroup)
+    val currentToggle by rememberUpdatedState(onToggleGroup)
+    val closeGroup: () -> Unit = { openGroup?.let(onToggleGroup) }
     val favoritesScroll = rememberScrollState()
     val currentEditing by rememberUpdatedState(editing)
 
@@ -201,6 +205,8 @@ fun HomePage(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onLongPress = { onSettings() },
+                    // Trykk på tom plass lukker en åpen gruppe.
+                    onTap = { currentOpenGroup?.let(currentToggle) },
                     onDoubleTap = { if (currentSettings.doubleTapLock && !currentEditingRoot) lockScreen(activity) },
                 )
             }
@@ -343,6 +349,8 @@ fun HomePage(
                 }
                 for (group in groups) {
                     val open = group.name in expanded
+                    // Med en gruppe åpen er resten dempet i bakgrunnen; trykk der lukker gruppen.
+                    Dimmed(dim = openGroup != null && !open && !editing, onTap = closeGroup) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.weight(1f)) {
                             GroupHeader(
@@ -355,6 +363,7 @@ fun HomePage(
                             )
                         }
                         if (editing) MoreButton("Valg for ${group.name}") { onGroupMenu(group.name) }
+                    }
                     }
                     if (open) {
                         ReorderableFavorites(
@@ -369,16 +378,18 @@ fun HomePage(
                         )
                     }
                 }
-                ReorderableFavorites(
-                    apps = singles,
-                    settings = settings,
-                    indent = false,
-                    editing = editing,
-                    onEditingChange = onEditingChange,
-                    onOpen = onOpen,
-                    onMenu = onMenu,
-                    onReorder = ::saveOrder,
-                )
+                Dimmed(dim = openGroup != null && !editing, onTap = closeGroup) {
+                    ReorderableFavorites(
+                        apps = singles,
+                        settings = settings,
+                        indent = false,
+                        editing = editing,
+                        onEditingChange = onEditingChange,
+                        onOpen = onOpen,
+                        onMenu = onMenu,
+                        onReorder = ::saveOrder,
+                    )
+                }
             }
             Spacer(Modifier.weight(1f))
             // Snarveiene nederst, fordelt over bredden (rekkefølge og synlighet velges i innstillingene).
@@ -432,6 +443,26 @@ private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () ->
             }
         }
     }
+
+/** Dempet i bakgrunnen (mens en gruppe er åpen): trykk hvor som helst på innholdet kaller [onTap] i stedet. */
+@Composable
+private fun Dimmed(dim: Boolean, onTap: () -> Unit, content: @Composable () -> Unit) {
+    val alpha by animateFloatAsState(if (dim) 0.25f else 1f, label = "demping")
+    Box(Modifier.graphicsLayer { this.alpha = alpha }) {
+        content()
+        if (dim) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                        onClick = onTap,
+                    )
+            )
+        }
+    }
+}
 
 /** Lite batterisymbol med prosent, oppdatert når batterinivået endres. */
 @Composable

@@ -25,7 +25,7 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
   I sorteringsmodus har hver app og gruppe ⋯ helt til høyre som åpner menyen over. «Ferdig», Tilbake eller Hjem låser.
 - **Grupper:** hold inne på en app → «Legg i gruppe». Grupper står øverst i alfabetisk rekkefølge, før enkeltappene,
   både i applisten og på hjemskjermen (der med favorittene som ligger i gruppen). Trykk på en gruppe for å åpne/lukke
-  den, hold inne for å endre navn eller slette den (appene beholdes).
+  den (bare én er åpen om gangen; resten dempes, og trykk utenfor gruppen lukker den), hold inne for å endre navn eller slette den (appene beholdes).
 - **Hold inne på tom plass** på hjemskjermen: innstillinger (tilganger, favorittrekkefølge, widget, pauseskjerm,
   grenser, dempede apper, skjulte apper, skjermtid i dag).
 - **Sveip ned** hvor som helst på hjemskjermen (også over favorittene og nederst): varselpanelet. Trykk på klokken for alarmer (hold inne for notat), på datoen for kalenderen.
