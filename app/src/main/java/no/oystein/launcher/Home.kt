@@ -1,6 +1,9 @@
 package no.oystein.launcher
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Spring
@@ -197,6 +200,8 @@ fun HomePage(
     val openGroup = groups.firstOrNull { it.name in expanded }?.name
     val currentOpenGroup by rememberUpdatedState(openGroup)
     val currentToggle by rememberUpdatedState(onToggleGroup)
+    // Høyden på favorittlisten sist den ble vist (mappen holder av like mye plass).
+    var listHeightPx by remember { mutableIntStateOf(0) }
     val favoritesScroll = rememberScrollState()
     val currentEditing by rememberUpdatedState(editing)
 
@@ -352,8 +357,21 @@ fun HomePage(
                 // igjen med god luft. Trykk på gruppenavnet eller utenfor lukker den. (Under sortering vises
                 // gruppen åpen i listen som før, så man kan dra appene.)
                 val folder = if (editing) null else groups.firstOrNull { it.name == openGroup }
-                Crossfade(targetState = folder, animationSpec = tween(220), label = "mappe") { f ->
-                    Column(Modifier.fillMaxWidth()) {
+                // Mappen begynner der listen begynte: plassen listen tok holdes av mens mappen vises, så
+                // ingenting hopper. Blir mappen høyere enn listen, vokser den mykt.
+                val density = LocalDensity.current
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = if (folder != null) with(density) { listHeightPx.toDp() } else 0.dp)
+                        .animateContentSize(tween(260)),
+                ) {
+                Crossfade(targetState = folder, animationSpec = tween(260), label = "mappe") { f ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .then(if (f == null) Modifier.onSizeChanged { listHeightPx = it.height } else Modifier)
+                    ) {
                         if (f != null) {
                             GroupHeader(
                                 group = f,
@@ -416,6 +434,7 @@ fun HomePage(
                             )
                         }
                     }
+                }
                 }
             }
             Spacer(Modifier.weight(1f))
