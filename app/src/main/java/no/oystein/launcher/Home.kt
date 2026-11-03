@@ -1,6 +1,8 @@
 package no.oystein.launcher
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -195,7 +197,6 @@ fun HomePage(
     val openGroup = groups.firstOrNull { it.name in expanded }?.name
     val currentOpenGroup by rememberUpdatedState(openGroup)
     val currentToggle by rememberUpdatedState(onToggleGroup)
-    val closeGroup: () -> Unit = { openGroup?.let(onToggleGroup) }
     val favoritesScroll = rememberScrollState()
     val currentEditing by rememberUpdatedState(editing)
 
@@ -347,48 +348,74 @@ fun HomePage(
                         color = Faint,
                     )
                 }
-                for (group in groups) {
-                    val open = group.name in expanded
-                    // Med en gruppe åpen er resten dempet i bakgrunnen; trykk der lukker gruppen.
-                    Dimmed(dim = openGroup != null && !open && !editing, onTap = closeGroup) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f)) {
+                // En åpen gruppe vises som en mappe: alt annet tones ut, og bare gruppen og appene dens står
+                // igjen med god luft. Trykk på gruppenavnet eller utenfor lukker den. (Under sortering vises
+                // gruppen åpen i listen som før, så man kan dra appene.)
+                val folder = if (editing) null else groups.firstOrNull { it.name == openGroup }
+                Crossfade(targetState = folder, animationSpec = tween(220), label = "mappe") { f ->
+                    Column(Modifier.fillMaxWidth()) {
+                        if (f != null) {
                             GroupHeader(
-                                group = group,
-                                expanded = open,
+                                group = f,
+                                expanded = true,
                                 fontSize = 28.sp,
                                 verticalPadding = 10,
-                                onToggle = { onToggleGroup(group.name) },
-                                onMenu = { onGroupMenu(group.name) },
+                                onToggle = { onToggleGroup(f.name) },
+                                onMenu = { onGroupMenu(f.name) },
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            ReorderableFavorites(
+                                apps = f.apps,
+                                settings = settings,
+                                indent = true,
+                                editing = false,
+                                onEditingChange = onEditingChange,
+                                onOpen = onOpen,
+                                onMenu = onMenu,
+                                onReorder = ::saveOrder,
+                                spacious = true,
+                            )
+                        } else {
+                            for (group in groups) {
+                                val open = editing && group.name in expanded
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.weight(1f)) {
+                                        GroupHeader(
+                                            group = group,
+                                            expanded = open,
+                                            fontSize = 28.sp,
+                                            verticalPadding = 10,
+                                            onToggle = { onToggleGroup(group.name) },
+                                            onMenu = { onGroupMenu(group.name) },
+                                        )
+                                    }
+                                    if (editing) MoreButton("Valg for ${group.name}") { onGroupMenu(group.name) }
+                                }
+                                if (open) {
+                                    ReorderableFavorites(
+                                        apps = group.apps,
+                                        settings = settings,
+                                        indent = true,
+                                        editing = editing,
+                                        onEditingChange = onEditingChange,
+                                        onOpen = onOpen,
+                                        onMenu = onMenu,
+                                        onReorder = ::saveOrder,
+                                    )
+                                }
+                            }
+                            ReorderableFavorites(
+                                apps = singles,
+                                settings = settings,
+                                indent = false,
+                                editing = editing,
+                                onEditingChange = onEditingChange,
+                                onOpen = onOpen,
+                                onMenu = onMenu,
+                                onReorder = ::saveOrder,
                             )
                         }
-                        if (editing) MoreButton("Valg for ${group.name}") { onGroupMenu(group.name) }
                     }
-                    }
-                    if (open) {
-                        ReorderableFavorites(
-                            apps = group.apps,
-                            settings = settings,
-                            indent = true,
-                            editing = editing,
-                            onEditingChange = onEditingChange,
-                            onOpen = onOpen,
-                            onMenu = onMenu,
-                            onReorder = ::saveOrder,
-                        )
-                    }
-                }
-                Dimmed(dim = openGroup != null && !editing, onTap = closeGroup) {
-                    ReorderableFavorites(
-                        apps = singles,
-                        settings = settings,
-                        indent = false,
-                        editing = editing,
-                        onEditingChange = onEditingChange,
-                        onOpen = onOpen,
-                        onMenu = onMenu,
-                        onReorder = ::saveOrder,
-                    )
                 }
             }
             Spacer(Modifier.weight(1f))
@@ -443,26 +470,6 @@ private fun Modifier.observeSwipeDown(enabled: () -> Boolean, onSwipeDown: () ->
             }
         }
     }
-
-/** Dempet i bakgrunnen (mens en gruppe er åpen): trykk hvor som helst på innholdet kaller [onTap] i stedet. */
-@Composable
-private fun Dimmed(dim: Boolean, onTap: () -> Unit, content: @Composable () -> Unit) {
-    val alpha by animateFloatAsState(if (dim) 0.25f else 1f, label = "demping")
-    Box(Modifier.graphicsLayer { this.alpha = alpha }) {
-        content()
-        if (dim) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null,
-                        onClick = onTap,
-                    )
-            )
-        }
-    }
-}
 
 /** Lite batterisymbol med prosent, oppdatert når batterinivået endres. */
 @Composable
@@ -567,6 +574,8 @@ private fun ReorderableFavorites(
     onOpen: (AppEntry) -> Unit,
     onMenu: (AppEntry) -> Unit,
     onReorder: (List<String>) -> Unit,
+    /** Mer luft mellom radene (åpen gruppe vist som mappe). */
+    spacious: Boolean = false,
 ) {
     val keys = apps.map { it.key }
     var order by remember(keys) { mutableStateOf(keys) }
@@ -676,6 +685,7 @@ private fun ReorderableFavorites(
                     app = app,
                     settings = settings,
                     indent = indent,
+                    spacious = spacious,
                     editing = editing,
                     highlighted = isDragging,
                     dimmed = dragging != null && !isDragging,
@@ -727,6 +737,7 @@ private fun FavoriteRow(
     app: AppEntry,
     settings: AppSettings,
     indent: Boolean,
+    spacious: Boolean = false,
     editing: Boolean,
     highlighted: Boolean,
     dimmed: Boolean,
@@ -740,7 +751,7 @@ private fun FavoriteRow(
             .fillMaxWidth()
             .combinedClickable(onClick = onOpen)
             .then(modifier)
-            .padding(start = if (indent) 28.dp else 0.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = if (indent) 28.dp else 0.dp, top = if (spacious) 13.dp else 10.dp, bottom = if (spacious) 13.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
