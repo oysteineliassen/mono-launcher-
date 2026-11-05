@@ -6,15 +6,27 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
- * Tilgjengelighetstjeneste som bare brukes til å låse skjermen (dobbelttrykk på hjemskjermen).
- * Android lar ikke vanlige apper slå av skjermen; dette er samme løsning som Minimalist Phone bruker.
- * Tjenesten leser ikke innholdet på skjermen.
+ * Tilgjengelighetstjeneste for å låse skjermen (dobbelttrykk på hjemskjermen) og vise pauseskjermen når
+ * en app åpnes utenfor launcheren. Android lar ikke vanlige apper slå av skjermen eller se hvilken app som
+ * åpnes; dette er samme løsning som Minimalist Phone bruker. Tjenesten ser bare hvilken app som er fremme,
+ * ikke innholdet på skjermen.
  */
 class LockService : AccessibilityService() {
+    private var scope: CoroutineScope? = null
+
     override fun onServiceConnected() {
         instance = this
+        scope?.cancel()
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main).also { s ->
+            s.launch { settingsFlow().collect { PauseGuard.settings = it } }
+        }
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -23,11 +35,15 @@ class LockService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        scope?.cancel()
         instance = null
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val s = scope ?: return
+        event?.let { PauseGuard.onEvent(this, it, s) }
+    }
 
     override fun onInterrupt() {}
 

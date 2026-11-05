@@ -32,7 +32,7 @@ import kotlinx.coroutines.withContext
 val Dim = Color(0xFF8A8A8A)
 val Faint = Color(0xFF4A4A4A)
 
-private val colors = darkColorScheme(
+internal val colors = darkColorScheme(
     primary = Color.White,
     onPrimary = Color.Black,
     secondary = Dim,

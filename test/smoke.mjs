@@ -769,6 +769,20 @@ sh(`adb shell settings put secure enabled_accessibility_services ${PKG}/${PKG}.L
 sh('adb shell settings put secure accessibility_enabled 1');
 await sleep(3000);
 await home();
+// 7d2. Pauseskjerm også når appen åpnes utenfor launcheren (her: Settings, som har pauseskjerm).
+{
+  sh('adb shell am start -n com.android.settings/.Settings');
+  const top = await waitTop(/PauseActivity/, 10000);
+  console.log('Settings åpnet utenfra:', top.trim());
+  console.log(launcherLog().split('\n').filter((l) => /pauseskjerm over/.test(l)).join('\n'));
+  if (!/PauseActivity/.test(top)) fail('pauseskjermen kom ikke opp når appen ble åpnet utenfor launcheren');
+  shot('10c-pause-utenfra');
+  tap(await need(/^Avbryt$/, 'Avbryt på pauseskjermen'));
+  await sleep(1500);
+  if (!/no\.oystein\.launcher\/\.MainActivity/.test(topActivity())) fail('«Avbryt» gikk ikke tilbake til hjemskjermen');
+}
+console.log('Pauseskjerm utenfra OK');
+await home();
 {
   // Dobbelttrykk på tom plass (mellom datoen og favorittene).
   sh(`adb shell "input tap ${W / 2 | 0} ${H * 0.42 | 0} & sleep 0.08; input tap ${W / 2 | 0} ${H * 0.42 | 0}"`);

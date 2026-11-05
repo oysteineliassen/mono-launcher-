@@ -82,6 +82,8 @@ data class AppSettings(
     val autoKeyboard: Boolean = true,
     /** Snarveiene nederst på hjemskjermen, i rekkefølge fra venstre. */
     val shortcuts: List<HomeShortcut> = defaultShortcuts(),
+    /** Pauseskjerm også når appen åpnes fra varsler og andre apper (krever tilgjengelighetstjenesten). */
+    val pauseEverywhere: Boolean = true,
     /** Widgetsiden (sveip til høyre). Når den er av, ligger widgetene lagret til den slås på igjen. */
     val widgetPage: Boolean = true,
     /** Gråtoner på hele telefonen (manuelt). */
@@ -183,6 +185,7 @@ object SettingsKeys {
     val shortcuts = stringPreferencesKey("shortcuts")
     val doubleTapLock = booleanPreferencesKey("double_tap_lock")
     val widgetPage = booleanPreferencesKey("widget_page")
+    val pauseEverywhere = booleanPreferencesKey("pause_everywhere")
     val grayscale = booleanPreferencesKey("grayscale")
     val grayscaleAuto = stringPreferencesKey("grayscale_auto")
     val homeNote = stringPreferencesKey("home_note")
@@ -229,6 +232,7 @@ fun Preferences.toSettings(): AppSettings {
         shortcuts = parseShortcuts(this[SettingsKeys.shortcuts]),
         doubleTapLock = this[SettingsKeys.doubleTapLock] ?: true,
         widgetPage = this[SettingsKeys.widgetPage] ?: true,
+        pauseEverywhere = this[SettingsKeys.pauseEverywhere] ?: true,
         grayscale = this[SettingsKeys.grayscale] ?: false,
         grayscaleAuto = this[SettingsKeys.grayscaleAuto]?.split(',')?.mapNotNull { it.toIntOrNull() }
             ?.takeIf { it.size == 2 }?.let { it[0] to it[1] },
@@ -379,6 +383,8 @@ class SettingsEditor(private val context: Context) {
     }
 
     suspend fun setHideStatusBar(on: Boolean) = edit { it[SettingsKeys.hideStatusBar] = on }
+
+    suspend fun setPauseEverywhere(on: Boolean) = edit { it[SettingsKeys.pauseEverywhere] = on }
 
     suspend fun setWidgetPage(on: Boolean) = edit { it[SettingsKeys.widgetPage] = on }
 

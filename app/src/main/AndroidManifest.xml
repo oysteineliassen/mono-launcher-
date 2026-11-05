@@ -52,6 +52,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Pauseskjermen oppå en app som ble åpnet utenfor launcheren. -->
+        <activity
+            android:name=".PauseActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:screenOrientation="portrait"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Launcher" />
+
         <!-- Tar imot «legg til på startskjermen» (snarveier og nettapper) og widgeter fra andre apper. -->
         <activity
             android:name=".PinActivity"

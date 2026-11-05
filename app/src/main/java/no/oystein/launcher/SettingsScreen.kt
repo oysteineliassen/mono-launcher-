@@ -76,7 +76,7 @@ fun SettingsScreen(
                 StatusRow("Standard startskjerm", isDefault) { activity.requestDefaultLauncher() }
                 StatusRow("Varseltilgang (demping)", hasNotif) { activity.startInternal(MutedNotifications.accessIntent(activity)) }
                 StatusRow("Brukstilgang (skjermtid)", hasUsage) { activity.startInternal(Usage.permissionIntent(activity)) }
-                StatusRow("Låsing (tilgjengelighet)", hasLock) {
+                StatusRow("Tilgjengelighet (låsing, pauseskjerm)", hasLock) {
                     activity.startInternal(LockService.settingsIntent().addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 }
                 if (settings.showNextEvent) {
@@ -148,6 +148,12 @@ fun SettingsScreen(
                 ListRow("Nedtelling: ${settings.pauseSeconds} sek") {
                     TextAction("−") { go { e.setPauseSeconds(settings.pauseSeconds - 1) } }
                     TextAction("+") { go { e.setPauseSeconds(settings.pauseSeconds + 1) } }
+                }
+            }
+            item {
+                ToggleRow("Også fra varsler og andre apper", settings.pauseEverywhere) { go { e.setPauseEverywhere(it) } }
+                if (settings.pauseEverywhere && !hasLock) {
+                    Hint("Krever at «Mono Launcher» er slått på under Tilgjengelighet (se Tilganger).")
                 }
             }
             if (settings.pausePackages.isEmpty()) item { Hint("Slås på per app: hold inne på appen.") }

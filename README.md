@@ -42,7 +42,7 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
   Trykk for å laste ned og installere (første gang må du tillate at Mono Launcher installerer apper).
 
 **Pauseskjerm:** for valgte apper vises en nedtelling (standard 10 sek) før «Åpne» dukker opp. Når dagens grense
-for en app er nådd, er nedtellingen tre ganger så lang (minst 30 sek). Gjelder når appen åpnes fra launcheren.
+for en app er nådd, er nedtellingen tre ganger så lang (minst 30 sek). Når «Mono Launcher» er slått på under Tilgjengelighet, kommer pauseskjermen også når appen åpnes fra et varsel eller en annen app (kan slås av under Innstillinger → Pauseskjerm).
 
 **Varselfilter:** varsler fra valgte apper fjernes fra varsellinjen og samles under «N dempede varsler» på hjemskjermen.
 Trykk for å åpne, hold inne for å fjerne. Under «Dempede varsler vises» kan du velge faste klokkeslett

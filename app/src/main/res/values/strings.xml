@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Mono Launcher</string>
-    <string name="lock_service_description">Lar Mono Launcher låse skjermen når du dobbelttrykker på tom plass på hjemskjermen. Tjenesten leser ikke noe fra skjermen.</string>
+    <string name="lock_service_description">Lar Mono Launcher låse skjermen når du dobbelttrykker på tom plass på hjemskjermen, og vise pauseskjermen når en app med pauseskjerm åpnes fra et varsel eller en annen app. Tjenesten ser bare hvilken app som åpnes, ikke innholdet på skjermen.</string>
 </resources>

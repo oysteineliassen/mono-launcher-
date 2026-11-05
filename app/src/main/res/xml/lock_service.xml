@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Leser ingenting fra skjermen; brukes bare til å låse telefonen. -->
+<!-- Leser ikke innholdet på skjermen: ser bare hvilken app som kommer fram (pauseskjerm), og låser telefonen. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeAnnouncement"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
     android:description="@string/lock_service_description"
