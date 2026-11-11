@@ -232,7 +232,15 @@ async function appList() {
 }
 await appList();
 longPress(await need(/^Clock$/, 'Clock i applisten'));
-tap(await need(/^Kjøp tid: av$/, 'menyvalget «Kjøp tid»'));
+{
+  const item = await need(/^Kjøp tid: av$/, 'menyvalget «Kjøp tid»');
+  console.log('Kjøp tid-valget:', JSON.stringify(item), 'skjerm', W, H);
+  tap(item);
+}
+await sleep(1200);
+longPress(await need(/^Clock$/, 'Clock i applisten'));
+if (!(await waitText(/^Kjøp tid: på$/, 4000))) fail('«Kjøp tid» ble ikke slått på: ' + nodes(dump()).map((n) => n.text).filter(Boolean).join(' | '));
+sh('adb shell input keyevent KEYCODE_BACK');
 await sleep(800);
 tap(await need(/^Clock$/, 'Clock i applisten'));
 await need(/Hvor lenge vil du bruke den\?/, 'valg av tid første gang');

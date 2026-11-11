@@ -196,6 +196,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         val limit = settings.limits[app.packageName]
         val used = usage[app.packageName] ?: 0L
         val overLimit = limit != null && used >= limit * 60_000L
+        android.util.Log.d("Launcher", "åpner ${app.packageName} (kjøp tid: ${app.packageName in settings.timePackages})")
         // «Kjøp tid»: har appen tid igjen i dag, åpnes den rett; ellers velger man tid først.
         if (app.packageName in settings.timePackages) {
             if (TimeBudget.state(activity, app.packageName) == TimeBudget.State.ACTIVE) {
