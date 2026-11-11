@@ -188,17 +188,23 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
 
     val sorted = remember(allApps, settings) { allApps.sortedByLabel(settings) }
 
+    val currentSettingsState = rememberUpdatedState(settings)
+    val currentUsageState = rememberUpdatedState(usage)
+    // Åpning kan skje fra en side som ble tegnet før innstillingene sist endret seg (f.eks. applisten),
+    // så les alltid de nyeste verdiene her.
     fun open(app: AppEntry) {
+        val latestSettings = currentSettingsState.value
+        val latestUsage = currentUsageState.value
         if (!appsReady) {
             pendingOpen = app.key
             return
         }
-        val limit = settings.limits[app.packageName]
-        val used = usage[app.packageName] ?: 0L
+        val limit = latestSettings.limits[app.packageName]
+        val used = latestUsage[app.packageName] ?: 0L
         val overLimit = limit != null && used >= limit * 60_000L
-        android.util.Log.d("Launcher", "åpner ${app.packageName} (kjøp tid: ${app.packageName in settings.timePackages})")
+        android.util.Log.d("Launcher", "åpner ${app.packageName} (kjøp tid: ${app.packageName in latestSettings.timePackages})")
         // «Kjøp tid»: har appen tid igjen i dag, åpnes den rett; ellers velger man tid først.
-        if (app.packageName in settings.timePackages) {
+        if (app.packageName in latestSettings.timePackages) {
             if (TimeBudget.state(activity, app.packageName) == TimeBudget.State.ACTIVE) {
                 activity.launchApp(app)
             } else {
@@ -207,7 +213,7 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             }
             return
         }
-        if (overLimit || app.packageName in settings.pausePackages) {
+        if (overLimit || app.packageName in latestSettings.pausePackages) {
             keyboard?.hide()
             overlay = Overlay.Pause(app)
         } else {
