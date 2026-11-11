@@ -1,9 +1,11 @@
 package no.oystein.launcher
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +29,22 @@ class LockService : AccessibilityService() {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main).also { s ->
             s.launch { settingsFlow().collect { PauseGuard.settings = it } }
         }
+        // Kjøpt tid teller ikke mens skjermen er av.
+        runCatching {
+            registerReceiver(screen, IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_USER_PRESENT)
+            })
+        }
+    }
+
+    private val screen = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> PauseGuard.stopTracking()
+                Intent.ACTION_USER_PRESENT -> PauseGuard.onUnlocked(this@LockService)
+            }
+        }
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -35,6 +53,7 @@ class LockService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(screen) }
         scope?.cancel()
         instance = null
         super.onDestroy()

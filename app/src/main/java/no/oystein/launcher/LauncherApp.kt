@@ -196,6 +196,16 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         val limit = settings.limits[app.packageName]
         val used = usage[app.packageName] ?: 0L
         val overLimit = limit != null && used >= limit * 60_000L
+        // «Kjøp tid»: har appen tid igjen i dag, åpnes den rett; ellers velger man tid først.
+        if (app.packageName in settings.timePackages) {
+            if (TimeBudget.state(activity, app.packageName) == TimeBudget.State.ACTIVE) {
+                activity.launchApp(app)
+            } else {
+                keyboard?.hide()
+                overlay = Overlay.Pause(app)
+            }
+            return
+        }
         if (overLimit || app.packageName in settings.pausePackages) {
             keyboard?.hide()
             overlay = Overlay.Pause(app)
@@ -335,6 +345,14 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
                 activity.launchApp(o.app)
             },
             onCancel = { overlay = null },
+            buyTime = if (o.app.packageName in settings.timePackages) remember(o.app.key) {
+                TimeBudget.state(activity, o.app.packageName)
+            } else null,
+            onBuy = { m ->
+                TimeBudget.buy(activity, o.app.packageName, m)
+                overlay = null
+                activity.launchApp(o.app)
+            },
         )
     }
 }

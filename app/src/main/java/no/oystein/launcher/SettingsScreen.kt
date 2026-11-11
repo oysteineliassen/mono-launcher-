@@ -161,6 +161,21 @@ fun SettingsScreen(
                 ListRow(pkgLabel(pkg)) { TextAction("Fjern") { go { e.setPause(pkg, false) } } }
             }
 
+            sectionHeader("Kjøp tid")
+            if (settings.timePackages.isEmpty()) item { Hint("Slås på per app: hold inne på appen og velg «Kjøp tid».") }
+            items(settings.timePackages.sortedBy { pkgLabel(it).lowercase() }, key = { "time:$it" }) { pkg ->
+                val left = remember(resumeCount) { TimeBudget.left(activity, pkg) }
+                val status = when {
+                    left == null -> "ikke kjøpt i dag"
+                    left <= 0 -> "brukt opp"
+                    else -> "${Usage.format(left)} igjen"
+                }
+                ListRow("${pkgLabel(pkg)} – $status") { TextAction("Fjern") { go { e.setTimeBudget(pkg, false) } } }
+            }
+            if (settings.timePackages.isNotEmpty() && !hasLock) {
+                item { Hint("Tiden telles og pauseskjermen kommer bare når «Mono Launcher» er slått på under Tilgjengelighet.") }
+            }
+
             sectionHeader("Daglige grenser")
             if (settings.limits.isEmpty()) item { Hint("Settes per app: hold inne på appen.") }
             items(settings.limits.entries.sortedBy { pkgLabel(it.key).lowercase() }, key = { "limit:${it.key}" }) { (pkg, min) ->

@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -163,6 +164,8 @@ fun AppMenu(
         MenuItem(settings.groups[app.key]?.let { "Gruppe: $it" } ?: "Legg i gruppe", onGroup)
         MenuItem(if (isHidden) "Vis i applisten" else "Skjul fra applisten") { act { e.setHidden(app.key, !isHidden) } }
         MenuItem(if (pause) "Pauseskjerm: på" else "Pauseskjerm: av") { act { e.setPause(app.packageName, !pause) } }
+        val timed = app.packageName in settings.timePackages
+        MenuItem(if (timed) "Kjøp tid: på" else "Kjøp tid: av") { act { e.setTimeBudget(app.packageName, !timed) } }
         MenuItem(if (limit != null) "Daglig grense: $limit min" else "Daglig grense: ingen", onLimit)
         MenuItem(if (muted) "Demp varsler: på" else "Demp varsler: av") {
             act {
@@ -242,10 +245,23 @@ fun LimitDialog(activity: MainActivity, app: AppEntry, settings: AppSettings, on
 // ---------- Pauseskjerm ----------
 
 @Composable
-fun PauseScreen(app: AppEntry, settings: AppSettings, usedMs: Long, onOpen: () -> Unit, onCancel: () -> Unit) {
+fun PauseScreen(
+    app: AppEntry,
+    settings: AppSettings,
+    usedMs: Long,
+    onOpen: () -> Unit,
+    onCancel: () -> Unit,
+    /** «Kjøp tid»: FIRST = velg tid uten nedtelling, EXPIRED = tiden er brukt opp (nedtelling først). */
+    buyTime: TimeBudget.State? = null,
+    onBuy: (Int) -> Unit = {},
+) {
     val limit = settings.limits[app.packageName]
     val overLimit = limit != null && usedMs >= limit * 60_000L
-    val total = if (overLimit) maxOf(settings.pauseSeconds * 3, 30) else settings.pauseSeconds
+    val total = when {
+        buyTime == TimeBudget.State.FIRST -> 0
+        overLimit -> maxOf(settings.pauseSeconds * 3, 30)
+        else -> settings.pauseSeconds
+    }
     var left by remember(app.key) { mutableIntStateOf(total) }
     LaunchedEffect(app.key) {
         while (left > 0) {
@@ -259,6 +275,8 @@ fun PauseScreen(app: AppEntry, settings: AppSettings, usedMs: Long, onOpen: () -
         Spacer(Modifier.height(12.dp))
         Text(
             when {
+                buyTime == TimeBudget.State.FIRST -> "Hvor lenge vil du bruke den?"
+                buyTime == TimeBudget.State.EXPIRED -> "Tiden du kjøpte er brukt opp."
                 overLimit -> "Du har nådd dagens grense på $limit min."
                 else -> "Pust rolig. Trenger du egentlig å åpne den nå?"
             },
@@ -283,7 +301,13 @@ fun PauseScreen(app: AppEntry, settings: AppSettings, usedMs: Long, onOpen: () -
             modifier = Modifier.fillMaxWidth().testTag("countdown"),
         )
         Spacer(Modifier.weight(1f))
-        if (left == 0) {
+        if (left == 0 && buyTime != null) {
+            // Kjøp tid: velg hvor lenge, så åpnes appen.
+            if (buyTime == TimeBudget.State.EXPIRED) Text("Kjøp mer tid:", fontSize = 15.sp, color = Faint)
+            Row(Modifier.fillMaxWidth().testTag("buytime"), horizontalArrangement = Arrangement.SpaceBetween) {
+                for (m in TimeBudget.CHOICES) TextAction("$m min", color = Color.White, size = 20) { onBuy(m) }
+            }
+        } else if (left == 0) {
             TextAction("Åpne ${app.label(settings)}", color = Color.White, size = 20, onClick = onOpen)
         }
         TextAction("Avbryt", color = Dim, size = 20, onClick = onCancel)

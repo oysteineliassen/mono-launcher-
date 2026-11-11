@@ -37,15 +37,22 @@ class PauseActivity : ComponentActivity() {
                 BackHandler { cancel() }
                 Box(Modifier.fillMaxSize().background(Color.Black)) {
                     settings?.let { s ->
+                        val buy = if (pkg in s.timePackages) remember { TimeBudget.state(this@PauseActivity, pkg) } else null
                         PauseScreen(
                             app = app,
                             settings = s,
                             usedMs = used,
                             onOpen = {
-                                PauseGuard.grant(pkg)
+                                PauseGuard.grant(this@PauseActivity, pkg)
                                 finish()
                             },
                             onCancel = ::cancel,
+                            buyTime = buy,
+                            onBuy = { m ->
+                                TimeBudget.buy(this@PauseActivity, pkg, m)
+                                PauseGuard.grant(this@PauseActivity, pkg)
+                                finish()
+                            },
                         )
                     }
                 }

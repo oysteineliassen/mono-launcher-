@@ -82,6 +82,8 @@ data class AppSettings(
     val autoKeyboard: Boolean = true,
     /** Snarveiene nederst på hjemskjermen, i rekkefølge fra venstre. */
     val shortcuts: List<HomeShortcut> = defaultShortcuts(),
+    /** Apper med «Kjøp tid»: man velger hvor lenge, og pauseskjermen kommer når tiden er brukt opp. */
+    val timePackages: Set<String> = emptySet(),
     /** Pauseskjerm også når appen åpnes fra varsler og andre apper (krever tilgjengelighetstjenesten). */
     val pauseEverywhere: Boolean = true,
     /** Widgetsiden (sveip til høyre). Når den er av, ligger widgetene lagret til den slås på igjen. */
@@ -186,6 +188,7 @@ object SettingsKeys {
     val doubleTapLock = booleanPreferencesKey("double_tap_lock")
     val widgetPage = booleanPreferencesKey("widget_page")
     val pauseEverywhere = booleanPreferencesKey("pause_everywhere")
+    val timePackages = stringSetPreferencesKey("time_packages")
     val grayscale = booleanPreferencesKey("grayscale")
     val grayscaleAuto = stringPreferencesKey("grayscale_auto")
     val homeNote = stringPreferencesKey("home_note")
@@ -233,6 +236,7 @@ fun Preferences.toSettings(): AppSettings {
         doubleTapLock = this[SettingsKeys.doubleTapLock] ?: true,
         widgetPage = this[SettingsKeys.widgetPage] ?: true,
         pauseEverywhere = this[SettingsKeys.pauseEverywhere] ?: true,
+        timePackages = this[SettingsKeys.timePackages] ?: emptySet(),
         grayscale = this[SettingsKeys.grayscale] ?: false,
         grayscaleAuto = this[SettingsKeys.grayscaleAuto]?.split(',')?.mapNotNull { it.toIntOrNull() }
             ?.takeIf { it.size == 2 }?.let { it[0] to it[1] },
@@ -383,6 +387,8 @@ class SettingsEditor(private val context: Context) {
     }
 
     suspend fun setHideStatusBar(on: Boolean) = edit { it[SettingsKeys.hideStatusBar] = on }
+
+    suspend fun setTimeBudget(pkg: String, on: Boolean) = edit { it.toggle(SettingsKeys.timePackages, pkg, on) }
 
     suspend fun setPauseEverywhere(on: Boolean) = edit { it[SettingsKeys.pauseEverywhere] = on }
 

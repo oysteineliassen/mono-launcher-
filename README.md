@@ -44,6 +44,11 @@ Minimalist Phone. Svart bakgrunn, kun tekst, ingen ikoner.
 **Pauseskjerm:** for valgte apper vises en nedtelling (standard 10 sek) før «Åpne» dukker opp. Når dagens grense
 for en app er nådd, er nedtellingen tre ganger så lang (minst 30 sek). Når «Mono Launcher» er slått på under Tilgjengelighet, kommer pauseskjermen også når appen åpnes fra et varsel eller en annen app (kan slås av under Innstillinger → Pauseskjerm).
 
+**Kjøp tid:** hold inne på en app og slå på «Kjøp tid». Første gang den åpnes i løpet av dagen, velger du hvor
+lenge du vil bruke den (5, 10, 15 eller 30 min). Tiden telles bare mens appen er fremme. Når den er brukt opp,
+kommer pauseskjermen oppå appen; etter nedtellingen kan du kjøpe mer tid. Krever at «Mono Launcher» er slått på
+under Tilgjengelighet.
+
 **Varselfilter:** varsler fra valgte apper fjernes fra varsellinjen og samles under «N dempede varsler» på hjemskjermen.
 Trykk for å åpne, hold inne for å fjerne. Under «Dempede varsler vises» kan du velge faste klokkeslett
 (f.eks. 12 og 18); da holdes varslene tilbake og kommer samlet på de tidspunktene. Pågående varsler (musikk, navigasjon, samtaler, alarmer) slippes gjennom.

@@ -56,6 +56,12 @@ class TestReceiver : BroadcastReceiver() {
             return
         }
         when (intent.action) {
+            "no.oystein.launcher.TEST_EXPIRE" -> {
+                val pkg = intent.getStringExtra("pkg") ?: return
+                TimeBudget.expire(context, pkg)
+                Log.d("Launcher", "test: kjøpt tid brukt opp for $pkg")
+                return
+            }
             "no.oystein.launcher.TEST_LOCK" -> {
                 Log.d("Launcher", "test: lås ${LockService.lock()}")
                 return

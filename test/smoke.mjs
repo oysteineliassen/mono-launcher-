@@ -222,6 +222,50 @@ tap(await need(/^Avinstaller$/, 'menyvalget «Avinstaller»'));
 }
 console.log('Avinstaller OK');
 
+// 3c. «Kjøp tid»: første gang velger man tid, så åpnes appen rett til tiden er brukt opp.
+async function appList() {
+  await home();
+  swipeLeft();
+  await sleep(1500);
+  sh('adb shell input keyevent KEYCODE_BACK'); // lukk tastaturet
+  await sleep(500);
+}
+await appList();
+longPress(await need(/^Clock$/, 'Clock i applisten'));
+tap(await need(/^Kjøp tid: av$/, 'menyvalget «Kjøp tid»'));
+await sleep(800);
+tap(await need(/^Clock$/, 'Clock i applisten'));
+await need(/Hvor lenge vil du bruke den\?/, 'valg av tid første gang');
+shot('6a-kjop-tid');
+tap(await need(/^5 min$/, '«5 min»'));
+{
+  const top = await waitTop(/deskclock/i);
+  if (!/deskclock/i.test(top)) fail('Clock åpnet seg ikke etter at tid ble kjøpt: ' + top);
+}
+await appList();
+tap(await need(/^Clock$/, 'Clock i applisten'));
+{
+  const top = await waitTop(/deskclock/i, 6000);
+  if (!/deskclock/i.test(top)) fail('Clock skulle åpnes rett med kjøpt tid igjen: ' + top);
+}
+sh(`adb shell am broadcast -a ${PKG}.TEST_EXPIRE --es pkg com.google.android.deskclock -p ${PKG}`);
+await sleep(800);
+await appList();
+tap(await need(/^Clock$/, 'Clock i applisten'));
+await need(/Tiden du kjøpte er brukt opp/, 'pauseskjermen når tiden er brukt opp');
+shot('6b-tid-brukt-opp');
+tap(await need(/^5 min$/, '«5 min» etter nedtellingen', 30000));
+{
+  const top = await waitTop(/deskclock/i);
+  if (!/deskclock/i.test(top)) fail('Clock åpnet seg ikke etter at ny tid ble kjøpt: ' + top);
+}
+await appList();
+longPress(await need(/^Clock$/, 'Clock i applisten'));
+tap(await need(/^Kjøp tid: på$/, 'menyvalget «Kjøp tid: på»'));
+await sleep(800);
+await home();
+console.log('Kjøp tid OK');
+
 // 4. Favoritt på hjemskjermen + pauseskjerm
 await home();
 const fav = await need(/^Oppsett$/, 'favoritt på hjemskjermen');
