@@ -171,9 +171,21 @@ class MainActivity : ComponentActivity() {
         stoppedForInternal = SystemClock.elapsedRealtime() - internalLaunchAt < 5_000
     }
 
+    /** Lukker tastaturet direkte via systemet (i tillegg til Compose), så Hjem alltid får det bort. */
+    fun hideKeyboard() {
+        runCatching {
+            val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            imm.hideSoftInputFromWindow(window.decorView.windowToken, 0)
+            currentFocus?.clearFocus()
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.action == Intent.ACTION_MAIN) {
+        Log.d(TAG, "onNewIntent action=${intent.action} flags=${Integer.toHexString(intent.flags)}")
+        // Hjem-knappen mens tastaturet er oppe: lukk tastaturet med en gang, uansett hva Compose gjør.
+        hideKeyboard()
+        if (intent.action == Intent.ACTION_MAIN || intent.hasCategory(Intent.CATEGORY_HOME)) {
             internalLaunchAt = 0L
             stoppedForInternal = false
             Log.d(TAG, "home: onNewIntent")

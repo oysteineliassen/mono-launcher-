@@ -274,6 +274,25 @@ await sleep(800);
 await home();
 console.log('Kjøp tid OK');
 
+// 3d. Hjem mens tastaturet er oppe i applisten (med tekst i søket) skal gå rett til hjemskjermen.
+await home();
+swipeLeft();
+await sleep(1500);
+sh('adb shell input text hji');
+await sleep(800);
+{
+  const ime = (() => { try { return sh('adb shell dumpsys input_method | grep -m1 mInputShown'); } catch { return ''; } })();
+  console.log('Tastatur før Hjem:', ime.trim());
+  sh('adb shell input keyevent KEYCODE_HOME');
+  await sleep(1500);
+  const clock = await waitText(/^\d{1,2}:\d{2}$/, 5000);
+  const field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText');
+  const after = (() => { try { return sh('adb shell dumpsys input_method | grep -m1 mInputShown'); } catch { return ''; } })();
+  console.log('Etter Hjem:', after.trim(), launcherLog().split('\n').filter((l) => /home:/.test(l)).slice(-3).join(' | '));
+  if (!clock || field) fail('Hjem med tastaturet oppe gikk ikke til hjemskjermen');
+}
+console.log('Hjem med tastatur OK');
+
 // 4. Favoritt på hjemskjermen + pauseskjerm
 await home();
 const fav = await need(/^Oppsett$/, 'favoritt på hjemskjermen');

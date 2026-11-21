@@ -136,9 +136,18 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             query = ""
             showHidden = false
             expanded = emptySet()
+            // Bytt side først, så tastaturet: når tastaturet lukkes endres vindusstørrelsen, og det kunne
+            // få sidebladingen til å bli stående på applisten.
+            val home = PAGE_HOME - firstPageState.value
+            pager.scrollToPage(home)
+            focus.clearFocus(force = true)
             keyboard?.hide()
-            focus.clearFocus()
-            pager.scrollToPage(PAGE_HOME - firstPageState.value)
+            activity.hideKeyboard()
+            repeat(6) {
+                kotlinx.coroutines.delay(100)
+                if (pager.currentPage != home) pager.scrollToPage(home)
+            }
+            android.util.Log.d("Launcher", "home: side ${pager.currentPage + firstPageState.value}")
         }
     }
 
