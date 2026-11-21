@@ -24,10 +24,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 val Dim = Color(0xFF8A8A8A)
 val Faint = Color(0xFF4A4A4A)
@@ -129,7 +131,9 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
         opens = stats.opens
     }
     LaunchedEffect(Unit) {
-        activity.homeEvents.collect {
+        // collectLatest: et nytt hjem-trykk avbryter et som henger, i stedet for å bli liggende i kø.
+        activity.homeEvents.collectLatest {
+            android.util.Log.d("Launcher", "home: nullstiller (side ${pager.currentPage + firstPageState.value})")
             overlay = null
             homeEditing = false
             pinWidgetPageUntil = 0L
@@ -139,13 +143,13 @@ private fun LauncherContent(activity: MainActivity, settings: AppSettings) {
             // Bytt side først, så tastaturet: når tastaturet lukkes endres vindusstørrelsen, og det kunne
             // få sidebladingen til å bli stående på applisten.
             val home = PAGE_HOME - firstPageState.value
-            pager.scrollToPage(home)
-            focus.clearFocus(force = true)
-            keyboard?.hide()
+            withTimeoutOrNull(1_000) { pager.scrollToPage(home) }
+            runCatching { focus.clearFocus(force = true) }
+            runCatching { keyboard?.hide() }
             activity.hideKeyboard()
             repeat(6) {
                 kotlinx.coroutines.delay(100)
-                if (pager.currentPage != home) pager.scrollToPage(home)
+                if (pager.currentPage != home) withTimeoutOrNull(1_000) { pager.scrollToPage(home) }
             }
             android.util.Log.d("Launcher", "home: side ${pager.currentPage + firstPageState.value}")
         }

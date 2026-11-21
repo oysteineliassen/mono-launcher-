@@ -38,7 +38,11 @@ class MainActivity : ComponentActivity() {
     lateinit var editor: SettingsEditor
         private set
 
-    private val _homeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+    private val _homeEvents = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 4,
+        // Et hjem-trykk skal aldri forsvinne fordi et tidligere ikke er ferdig behandlet.
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST,
+    )
 
     /** Sendes når hjemknappen trykkes eller launcheren vises igjen (f.eks. etter opplåsing). */
     val homeEvents: SharedFlow<Unit> = _homeEvents
