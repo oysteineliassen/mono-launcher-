@@ -292,6 +292,25 @@ await sleep(800);
   if (!clock || field) fail('Hjem med tastaturet oppe gikk ikke til hjemskjermen');
 }
 console.log('Hjem med tastatur OK');
+// 3e. Åpne en app fra søket i applisten: launcheren skal stille seg tilbake til hjemskjermen med en gang
+// den går i bakgrunnen, så Hjem viser hjemskjermen direkte (ikke applisten med gammelt søk først).
+swipeLeft();
+await sleep(1500);
+sh('adb shell input text clo');
+await sleep(800);
+tap(await need(/^Clock$/, 'Clock i søket'));
+await waitTop(/deskclock/i);
+await sleep(1500);
+{
+  const log = launcherLog().split('\n').filter((l) => /home: onStop/.test(l));
+  if (!log.length) fail('launcheren stilte seg ikke tilbake til hjemskjermen da en app ble åpnet');
+  sh('adb shell input keyevent KEYCODE_HOME');
+  await sleep(1200);
+  const clock = await waitText(/^\d{1,2}:\d{2}$/, 5000);
+  const field = nodes(dump()).find((n) => n.cls === 'android.widget.EditText');
+  if (!clock || field) fail('Hjem fra en app viste ikke hjemskjermen');
+}
+console.log('Tilbake til hjemskjermen ved åpning av app OK');
 
 // 4. Favoritt på hjemskjermen + pauseskjerm
 await home();

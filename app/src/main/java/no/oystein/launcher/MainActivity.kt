@@ -206,6 +206,13 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         runCatching { widgets.host.stopListening() }
         stoppedForInternal = SystemClock.elapsedRealtime() - internalLaunchAt < 5_000
+        // Gikk vi til en annen app (ikke innstillinger o.l. fra launcheren), stilles alt tilbake til
+        // hjemskjermen allerede nå. Da vises hjemskjermen med en gang når man trykker Hjem, i stedet for
+        // applisten med gammelt søk som så glir over.
+        if (!stoppedForInternal && !isChangingConfigurations) {
+            Log.d(TAG, "home: onStop")
+            _homeEvents.tryEmit(Unit)
+        }
     }
 
     /** Lukker tastaturet direkte via systemet (i tillegg til Compose), så Hjem alltid får det bort. */
