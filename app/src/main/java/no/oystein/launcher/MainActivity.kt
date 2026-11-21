@@ -165,6 +165,43 @@ class MainActivity : ComponentActivity() {
         outState.putInt(KEY_PENDING_WIDGET, pendingWidgetId)
     }
 
+    /**
+     * Noen telefoner (bl.a. Xiaomi/HyperOS) sender ikke alltid Hjem som ny intent når launcheren allerede er
+     * øverst, særlig når tastaturet er eller nettopp var oppe. Systemet sender likevel «lukk systemdialoger»
+     * med grunn «homekey», så vi lytter på den også mens launcheren vises.
+     */
+    private val homeKeyReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: Intent) {
+            val reason = intent.getStringExtra("reason")
+            Log.d(TAG, "lukk systemdialoger: $reason")
+            if (reason == "homekey") {
+                hideKeyboard()
+                Log.d(TAG, "home: homekey")
+                _homeEvents.tryEmit(Unit)
+            }
+        }
+    }
+    private var homeKeyRegistered = false
+
+    override fun onResume() {
+        super.onResume()
+        if (!homeKeyRegistered) runCatching {
+            @Suppress("DEPRECATION")
+            val filter = android.content.IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+            if (Build.VERSION.SDK_INT >= 33) registerReceiver(homeKeyReceiver, filter, RECEIVER_EXPORTED)
+            else registerReceiver(homeKeyReceiver, filter)
+            homeKeyRegistered = true
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (homeKeyRegistered) {
+            runCatching { unregisterReceiver(homeKeyReceiver) }
+            homeKeyRegistered = false
+        }
+    }
+
     override fun onStop() {
         super.onStop()
         runCatching { widgets.host.stopListening() }
