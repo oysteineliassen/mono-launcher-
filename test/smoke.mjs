@@ -662,6 +662,19 @@ longPress({ x: W / 2 | 0, y: H * 0.75 | 0 });
 await need(/^Innstillinger$/, 'innstillinger');
 await need(/^Standard startskjerm$/, 'tilgangsliste');
 shot('8-innstillinger');
+// Apper etter installering: egen liste, tilbake-knappen går tilbake til innstillingene.
+{
+  const row = await need(/^Apper etter installering$/, 'raden «Apper etter installering»');
+  const vis = nodes(dump()).find((n) => n.text === 'Vis' && Math.abs(n.y - row.y) < 30);
+  if (!vis) fail('fant ikke «Vis» for apper etter installering');
+  tap(vis);
+  await need(/^Etter installering$/, 'listen over apper etter installering');
+  await need(/^Forhåndsinstallert$|^Clock$|^Chrome$/, 'apper i installeringslisten');
+  shot('8a-installering');
+  sh('adb shell input keyevent KEYCODE_BACK');
+  await need(/^Standard startskjerm$/, 'tilbake i innstillingene');
+  console.log('Apper etter installering OK');
+}
 // Skjul «Meldinger»-snarveien og sjekk at den forsvinner fra hjemskjermen.
 let smsRow = null;
 for (let i = 0; i < 4 && !smsRow; i++) {

@@ -256,6 +256,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Appinfo og avinstallering: man kommer tilbake til samme sted i launcheren etterpå. */
+    fun openAppInfo(app: AppEntry) {
+        markInternalLaunch()
+        apps.openAppInfo(app)
+    }
+
+    fun uninstall(app: AppEntry) {
+        markInternalLaunch()
+        apps.uninstall(app)
+    }
+
     fun launchApp(app: AppEntry) {
         // Åpnet fra launcheren (eventuelt etter pauseskjermen her): ikke vis pauseskjermen en gang til.
         PauseGuard.grant(this, app.packageName)

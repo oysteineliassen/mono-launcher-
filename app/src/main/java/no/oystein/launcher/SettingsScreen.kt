@@ -55,6 +55,7 @@ fun SettingsScreen(
     val hasCalendar = remember(resumeCount) { NextEvent.hasCalendarPermission(activity) }
     var deliveryDialog by remember { mutableStateOf(false) }
     var grayscaleDialog by remember { mutableStateOf(false) }
+    var showInstalled by remember { mutableStateOf(false) }
     val hasGrayscale = remember(resumeCount) { Grayscale.hasPermission(activity) }
     val update by Updater.state.collectAsState()
 
@@ -65,11 +66,17 @@ fun SettingsScreen(
     if (deliveryDialog) DeliveryDialog(activity, settings) { deliveryDialog = false }
     if (grayscaleDialog) GrayscaleDialog(activity, settings) { grayscaleDialog = false }
 
+    if (showInstalled) {
+        InstalledAppsScreen(activity, apps, settings) { showInstalled = false }
+        return
+    }
+
     FullScreen {
         Title("Innstillinger", onClose)
         LazyColumn(Modifier.fillMaxSize().testTag("settings")) {
             item {
                 ListRow("Android-innstillinger") { TextAction("Åpne") { openAndroidSettings(activity) } }
+                ListRow("Apper etter installering") { TextAction("Vis") { showInstalled = true } }
             }
             sectionHeader("Tilganger")
             item {
